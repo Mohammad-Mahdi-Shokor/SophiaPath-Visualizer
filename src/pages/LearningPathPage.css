@@ -1,0 +1,272 @@
+.path-page {
+  min-height: 100%;
+  padding: 1rem 0 2rem;
+}
+
+.path-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.path-title {
+  margin-top: 1rem;
+  font-size: clamp(2.5rem, 3vw + 1rem, 4.5rem);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+}
+
+.path-subtitle {
+  max-width: 40rem;
+  margin: 1rem auto 0;
+  line-height: 1.8;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.path-visual-shell {
+  border-radius: 32px;
+  padding: 2rem;
+  overflow: hidden;
+}
+
+.path-visual {
+  position: relative;
+  width: 300px;
+  height: 750px;
+  margin: 0 auto;
+}
+
+.path-svg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: visible;
+}
+
+.path-svg-progress {
+  animation: drawPath 4s ease-out forwards;
+}
+
+.path-node-shell {
+  position: absolute;
+  z-index: 1;
+}
+
+.path-node-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.path-node-pulse {
+  position: absolute;
+  width: 6rem;
+  height: 6rem;
+  border-radius: 999px;
+  background: rgba(var(--primary-main-rgb), 0.2);
+  animation: pulseNode 2.2s infinite;
+}
+
+.path-node {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 1.6rem;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+}
+
+.path-node:hover {
+  transform: scale(1.08);
+}
+
+.path-node-completed {
+  background: linear-gradient(135deg, #29c57b, #46e29c);
+  color: white;
+}
+
+.path-node-active {
+  background: var(--hero-gradient);
+  color: white;
+  box-shadow: var(--shadow-glow);
+}
+
+.path-node-upcoming {
+  background: var(--background-paper);
+  color: var(--text-disabled);
+  border: 1px solid var(--divider);
+  filter: grayscale(0.15);
+}
+
+.path-node-caption-title {
+  position: absolute;
+  top: 5.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-align: center;
+  color: var(--text-primary);
+  width: 140px;
+  line-height: 1.35;
+  font-family: 'Outfit', sans-serif;
+  transition: color 0.2s ease, opacity 0.2s ease;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.path-node-caption-title.status-upcoming {
+  color: var(--text-disabled);
+  opacity: 0.55;
+}
+
+.path-node-meta {
+  margin-top: 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.path-node-meta-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+}
+
+.path-node-meta-dot.status-completed {
+  background: var(--success-main);
+}
+
+.path-node-meta-dot.status-active {
+  background: var(--primary-main);
+}
+
+.path-node-meta-dot.status-upcoming {
+  background: var(--divider);
+}
+
+.path-node-status {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-secondary);
+}
+
+.path-footer {
+  position: relative;
+  margin-top: 3rem;
+  padding: 2.5rem;
+  border-radius: 36px;
+  overflow: hidden;
+}
+
+.path-footer-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 5px;
+  background: var(--hero-gradient);
+}
+
+.path-footer-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.path-footer-title {
+  font-weight: 800;
+}
+
+.path-footer-copy {
+  max-width: 38rem;
+  margin: 1rem auto 0;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+.path-footer-button {
+  margin-top: 2rem !important;
+}
+
+.path-footer-decoration {
+  position: absolute;
+  right: -1rem;
+  bottom: -1rem;
+  font-size: 13rem !important;
+  color: rgba(var(--primary-main-rgb), 0.08);
+  transform: rotate(-10deg);
+}
+
+@keyframes drawPath {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pulseNode {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .path-visual-shell,
+  .path-footer {
+    padding: 1.4rem;
+  }
+}
+
+/* Floating Navigation Action Button (FAB) */
+.path-floating-action-btn {
+  position: fixed !important;
+  top: 50% !important;
+  left: calc(50% + 470px) !important;
+  right: auto !important;
+  transform: translateY(-50%) !important;
+  width: 54px !important;
+  height: 54px !important;
+  border-radius: 50% !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: var(--hero-gradient) !important;
+  border: 2px solid rgba(255, 255, 255, 0.4) !important;
+  color: white !important;
+  box-shadow: 0 10px 25px rgba(var(--primary-main-rgb), 0.4) !important;
+  cursor: pointer !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.path-floating-action-btn:hover {
+  box-shadow: 0 15px 30px rgba(var(--primary-main-rgb), 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  transform: translateY(-50%) scale(1.1) !important;
+}
+
+@media (max-width: 767px) {
+  .path-visual-shell,
+  .path-footer {
+    padding: 1.4rem;
+  }
+  .path-floating-action-btn {
+    right: 24px !important;
+    left: auto !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+  }
+  .path-floating-action-btn:hover {
+    transform: translateY(-50%) scale(1.1) !important;
+  }
+}
