@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Editor from '@monaco-editor/react';
 import html2canvas from 'html2canvas';
 import { simulateCodeExecution, executeCodeAsync } from './CppPlaygroundDialog';
@@ -491,17 +491,31 @@ const analyzeRelationships = (classes) => {
   return relations;
 };
 
-export const JavaOopUmlPlayground = ({ open, onClose }) => {
+export const JavaOopUmlPlayground = ({ open, onClose, csvExamples = [] }) => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
 
-  const [code, setCode] = useState(EXAMPLES[0].code);
-  const [umlClasses, setUmlClasses] = useState(javaToUmlClasses(EXAMPLES[0].code));
+  // Merge hardcoded OOP examples with CSV-derived examples from info.csv
+  const ALL_EXAMPLES = useMemo(() => {
+    const csvMapped = csvExamples.map(ex => ({
+      name: ex.name,
+      code: ex.code,
+      mainCode: ex.mainCode || `public class Runner {
+    public static void main(String[] args) {
+        // Add your test code here
+    }
+}`,
+    }));
+    return [...EXAMPLES, ...csvMapped];
+  }, [csvExamples]);
+
+  const [code, setCode] = useState(ALL_EXAMPLES[0].code);
+  const [umlClasses, setUmlClasses] = useState(javaToUmlClasses(ALL_EXAMPLES[0].code));
   const [activeExampleIndex, setActiveExampleIndex] = useState(0);
 
   const [activeTab, setActiveTab] = useState('uml'); // 'uml' | 'runner'
   const [inputStr, setInputStr] = useState('');
-  const [mainCode, setMainCode] = useState(EXAMPLES[0].mainCode);
+  const [mainCode, setMainCode] = useState(ALL_EXAMPLES[0].mainCode);
   const [terminalOutput, setTerminalOutput] = useState('Terminal ready. Click "RUN JAVA CODE" to execute.');
   const [isRunning, setIsRunning] = useState(false);
 
@@ -1108,7 +1122,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
   const loadExample = (idx) => {
     setActiveExampleIndex(idx);
-    const ex = EXAMPLES[idx];
+    const ex = ALL_EXAMPLES[idx];
     setClassPositions({}); // Clear positions so examples position correctly
     setCode(ex.code);
     setUmlClasses(javaToUmlClasses(ex.code));

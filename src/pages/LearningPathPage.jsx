@@ -36,10 +36,78 @@ import {
   Terminal as TerminalIcon
 } from '@mui/icons-material';
 
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { coursesData } from '../data/courses';
 import './LearningPathPage.css';
+
+/**
+ * Extracts code snippets from lesson pages in info.csv.
+ * Returns a lookup: { cppCode: string, javaExamples: [...] }
+ */
+const extractCodeFromCourse = (rawCourse) => {
+  const cppSnippets = [];
+  const javaSnippets = [];
+
+  (rawCourse.sections || []).forEach(sec => {
+    (sec.lessons || []).forEach(les => {
+      (les.pages || []).forEach(page => {
+        (page.blocks || []).forEach(block => {
+          if (block.type === 'normal_code' && block.codeSnippet) {
+            const lang = (block.codeSnippet.language || '').toLowerCase();
+            const codeText = (block.codeSnippet.lines || []).join('\n');
+            if (codeText.trim()) {
+              if (lang === 'cpp' || lang === 'c++') {
+                cppSnippets.push(codeText);
+              } else if (lang === 'java') {
+                javaSnippets.push(codeText);
+              }
+            }
+          }
+        });
+      });
+    });
+  });
+
+  return { cppSnippets, javaSnippets };
+};
+
+const normalizeCourse = (rawCourse) => ({
+  id: rawCourse.id,
+  title: rawCourse.title,
+  description: rawCourse.description || '',
+  about: rawCourse.about || '',
+  imageUrl: rawCourse.imageUrl || '',
+  comingsoon: rawCourse.comingsoon || false,
+  totalLessons: rawCourse.totalLessons || 0,
+  codeIndex: extractCodeFromCourse(rawCourse),
+  sections: (rawCourse.sections || [])
+    .slice()
+    .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+    .map(sec => ({
+      id: sec.id,
+      title: sec.title,
+      description: sec.description || '',
+      orderIndex: sec.orderIndex || 0,
+      lessons: (sec.lessons || [])
+        .slice()
+        .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+        .map(les => ({
+          id: les.id,
+          category: les.category || 'learning',
+          chapterName: les.chapterName || '',
+          title: les.title || 'Untitled Lesson',
+          orderIndex: les.orderIndex || 0,
+          // Preserve code snippets for playground integration
+          codeSnippets: (les.pages || []).flatMap(page =>
+            (page.blocks || [])
+              .filter(b => b.type === 'normal_code' && b.codeSnippet)
+              .map(b => ({
+                language: (b.codeSnippet.language || '').toLowerCase(),
+                code: (b.codeSnippet.lines || []).join('\n'),
+                runnable: b.runable !== false,
+              }))
+          ),
+        }))
+    }))
+});
 
 const getNodeIcon = (node) => {
   if (node.status === 'upcoming') {
@@ -57,18 +125,20 @@ const getNodeIcon = (node) => {
 };
 
 const LearningPathPage = () => {
-  const { courseId } = useParams();
+  // Course ID derived from info.csv data dynamically — no hardcoded ID
+  const courseId = 'info-csv-course';
   const theme = useTheme();
   const isMobileViewport = useMediaQuery(theme.breakpoints.down('sm'));
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { user, updateQuizScore } = useAuth();
+  const location = { state: null };
+  const navigate = () => {};
+  const user = { quizScores: {} };
+  const updateQuizScore = () => {};
 
   const [isCompilerOpen, setIsCompilerOpen] = useState(false);
   const [isJavaUmlPlaygroundOpen, setIsJavaUmlPlaygroundOpen] = useState(false);
 
-  const [course, setCourse] = useState(location.state?.course || null);
-  const [courseLoading, setCourseLoading] = useState(!course);
+  const [course, setCourse] = useState(null);
+  const [courseLoading, setCourseLoading] = useState(true);
   const [backendLessons, setBackendLessons] = useState({});
   const [loadingLessons, setLoadingLessons] = useState(false);
 
@@ -81,54 +151,28 @@ const LearningPathPage = () => {
   const [showScrollArrow, setShowScrollArrow] = useState(false);
   const [scrollDirection, setScrollDirection] = useState('up');
 
-  // Dynamic database course loading
+  // Dynamic course loading from the visualizer's local info.csv file
   useEffect(() => {
     const loadCourse = async () => {
       try {
-        const res = await fetch('/courses/export/all');
-        if (res.ok) {
-          const list = await res.json();
-          const mappedList = list.map(bc => ({
-            id: bc.id,
-            title: bc.title,
-            description: bc.description || '',
-            about: bc.about || '',
-            imageUrl: bc.imageUrl || '',
-            comingsoon: bc.comingsoon || false,
-            sections: (bc.sections || []).map(sec => ({
-              id: sec.id,
-              title: sec.title,
-              description: sec.description || '',
-              lessons: (sec.lessons || []).map(les => ({
-                id: les.id,
-                category: les.category || 'learning',
-                chapterName: les.chapterName || '',
-                title: les.title || 'Untitled Lesson',
-                orderIndex: les.orderIndex || 0,
-              }))
-            }))
-          }));
-
-
-          const matched = mappedList.find(c =>
-            String(c.id) === String(courseId) ||
-            c.title.toLowerCase().replace(/\s+/g, '-') === String(courseId).toLowerCase()
-          );
-          if (matched) {
-            setCourse(matched);
-            setCourseLoading(false);
-            return;
-          }
+        const res = await fetch('/info.csv');
+        if (!res.ok) {
+          throw new Error(`Could not load info.csv (${res.status})`);
         }
-      } catch (err) {
-        console.error('Failed to load course path from database:', err);
-      }
+        const data = JSON.parse(await res.text());
+        const list = Array.isArray(data) ? data : [data];
+        const matched = list.find(c =>
+          String(c.id) === '2' ||
+          String(c.id) === String(courseId) ||
+          c.title?.toLowerCase()?.includes('computer science') ||
+          c.title?.toLowerCase()?.replace(/\s+/g, '-') === String(courseId).toLowerCase()
+        );
 
-      const fallback = coursesData.find(c =>
-        String(c.id) === String(courseId) ||
-        c.title.toLowerCase().replace(/\s+/g, '-') === String(courseId).toLowerCase()
-      );
-      setCourse(fallback);
+        setCourse(matched ? normalizeCourse(matched) : null);
+      } catch (err) {
+        console.error('Failed to load course path from info.csv:', err);
+        setCourse(null);
+      }
       setCourseLoading(false);
     };
 
@@ -229,44 +273,10 @@ const LearningPathPage = () => {
 
   const activeSection = sections[activeSectionIndex];
 
-  // Load lessons for the active section dynamically from backend section lessons endpoint
+  // Lessons are already present in info.csv, so no backend section fetch is needed.
   useEffect(() => {
-    if (!course || !activeSection) return;
-
-    const courseDbId = course.id;
-    const sectionId = activeSection.id;
-
-    const loadBackendLessons = async () => {
-      setLoadingLessons(true);
-      try {
-        let dbId = courseDbId;
-        if (isNaN(Number(dbId))) {
-          const res = await fetch('/courses');
-          if (res.ok) {
-            const list = await res.json();
-            const matched = list.find(c => c.title.toLowerCase() === course.title.toLowerCase());
-            if (matched) dbId = matched.id;
-          }
-        }
-
-        const secRes = await fetch(`/courses/${dbId}/sections/${sectionId}`);
-        if (secRes.ok) {
-          const sectionData = await secRes.json();
-          if (sectionData && sectionData.lessons) {
-            setBackendLessons(prev => ({
-              ...prev,
-              [sectionId]: sectionData.lessons
-            }));
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load lessons from backend section:', err);
-      } finally {
-        setLoadingLessons(false);
-      }
-    };
-
-    loadBackendLessons();
+    setBackendLessons({});
+    setLoadingLessons(false);
   }, [course, activeSectionIndex]);
 
   const cheatsheetLesson = useMemo(() => {
@@ -313,6 +323,52 @@ const LearningPathPage = () => {
 
     return uniqueLessons;
   }, [activeSection, backendLessons]);
+
+  const csvCppCode = useMemo(() => {
+    if (!course?.codeIndex?.cppSnippets?.length) return null;
+    // Use the first runnable C++ snippet found in the course
+    return course.codeIndex.cppSnippets[0] || null;
+  }, [course]);
+
+  const csvJavaExamples = useMemo(() => {
+    if (!course?.codeIndex?.javaSnippets?.length) return [];
+    // Return up to 3 Java code snippets from info.csv as examples
+    return course.codeIndex.javaSnippets.slice(0, 3).map((code, idx) => ({
+      name: `Java Example ${idx + 1} (from course)`,
+      code,
+      mainCode: null,
+    }));
+  }, [course]);
+
+  const activeSectionCppCode = useMemo(() => {
+    if (!activeSection?.lessons) return null;
+    for (const lesson of activeSection.lessons) {
+      const cppSnippet = (lesson.codeSnippets || []).find(s => s.language === 'cpp' && s.runnable);
+      if (cppSnippet) return cppSnippet.code;
+    }
+    return null;
+  }, [activeSection]);
+
+  const activeSectionJavaExamples = useMemo(() => {
+    if (!activeSection?.lessons) return [];
+    const examples = [];
+    for (const lesson of activeSection.lessons) {
+      const javaSnips = (lesson.codeSnippets || []).filter(s => s.language === 'java');
+      for (const snip of javaSnips) {
+        examples.push({
+          name: `${lesson.title} - Java Snippet`,
+          code: snip.code,
+          mainCode: null,
+        });
+      }
+    }
+    return examples.slice(0, 5);
+  }, [activeSection]);
+
+  const playgroundCppCode = activeSectionCppCode || csvCppCode || null;
+  const playgroundJavaExamples = activeSectionJavaExamples.length > 0
+    ? activeSectionJavaExamples
+    : csvJavaExamples;
 
   // Sync results from QuizPage if any
   useEffect(() => {
@@ -1006,10 +1062,12 @@ const LearningPathPage = () => {
       <CppPlaygroundDialog
         open={isCompilerOpen}
         onClose={() => setIsCompilerOpen(false)}
+        initialCode={playgroundCppCode}
       />
       <JavaOopUmlPlayground
         open={isJavaUmlPlaygroundOpen}
         onClose={() => setIsJavaUmlPlaygroundOpen(false)}
+        csvExamples={playgroundJavaExamples}
       />
     </Box>
   );
