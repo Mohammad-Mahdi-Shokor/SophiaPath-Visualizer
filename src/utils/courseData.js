@@ -4,8 +4,31 @@ export const loadCourseFile = async () => {
     throw new Error(`Could not load info.csv (${res.status})`);
   }
   const text = await res.text();
-  const data = JSON.parse(text);
-  return Array.isArray(data) ? data : [data];
+
+  const trimmed = text.trim();
+  // Try parsing as JSON first (the file often contains JSON despite the .csv extension)
+  try {
+    const data = JSON.parse(trimmed);
+    return Array.isArray(data) ? data : [data];
+  } catch (jsonErr) {
+    // Fallback: attempt a simple CSV parse for flat CSV files (header + rows).
+    // This is intentionally lightweight — nested/course objects are best provided as JSON.
+    try {
+      const lines = trimmed.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length === 0) return [];
+      const header = lines[0].split(',').map(h => h.trim());
+      const rows = lines.slice(1).map(line => {
+        const cols = line.split(',').map(c => c.trim());
+        const obj = {};
+        header.forEach((h, i) => { obj[h] = cols[i] !== undefined ? cols[i] : ''; });
+        return obj;
+      });
+      return rows;
+    } catch (csvErr) {
+      // If everything fails, rethrow the original JSON error for debugging
+      throw jsonErr;
+    }
+  }
 };
 
 export const findCourseByIdOrSlug = (courses, courseId) => {

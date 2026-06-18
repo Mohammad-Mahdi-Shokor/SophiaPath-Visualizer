@@ -30,6 +30,11 @@
                                     {
                                         "text": "A computer system consists of two fundamental parts: Hardware and Software. Understanding how these components interact is essential for anyone learning to program.",
                                         "type": "paragraph"
+                                    },
+                                    {
+                                        "alt": "Diagram showing the two main components of a computer system: Hardware and Software",
+                                        "src": "computer_system_overview.png",
+                                        "type": "image"
                                     }
                                 ],
                                 "pageId": 1,
@@ -71,6 +76,11 @@
                                                 "text": ": permanent record of data, often stored on a disk"
                                             }
                                         ]
+                                    },
+                                    {
+                                        "alt": "Diagram illustrating the five main hardware components of a computer system",
+                                        "src": "hardware_five_components.png",
+                                        "type": "image"
                                     }
                                 ],
                                 "pageId": 2,
@@ -182,6 +192,11 @@
                                     {
                                         "text": "When data spans multiple bytes, the address refers to the first byte in the sequence. The next few consecutive bytes store the additional bits needed for the complete value. The computer knows how many bytes to read based on the data type.",
                                         "type": "paragraph"
+                                    },
+                                    {
+                                        "alt": "Diagram showing how multi-byte data spans consecutive memory addresses",
+                                        "src": "multi_byte_memory.png",
+                                        "type": "image"
                                     }
                                 ],
                                 "pageId": 5,
@@ -510,6 +525,11 @@
                                                 "text": ": The result is the algorithm translated into a programming language"
                                             }
                                         ]
+                                    },
+                                    {
+                                        "alt": "Diagram showing the two phases of program design: Problem Solving and Implementation",
+                                        "src": "program_design_phases.png",
+                                        "type": "image"
                                     }
                                 ],
                                 "pageId": 3,
@@ -26544,120 +26564,44 @@
                                         "type": "paragraph"
                                     },
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Date",
-                                        "Methods": [
-                                            {
-                                                "name": "Date",
-                                                "type": "constructor",
-                                                "parameter": []
-                                            },
-                                            {
-                                                "name": "Date",
-                                                "type": "constructor",
-                                                "parameter": [
-                                                    {
-                                                        "name": "year",
-                                                        "type": "int"
-                                                    },
-                                                    {
-                                                        "name": "month",
-                                                        "type": "String"
-                                                    },
-                                                    {
-                                                        "name": "day",
-                                                        "type": "int"
-                                                    }
-                                                ]
-                                            },
-                                            {
-                                                "name": "Date",
-                                                "type": "constructor",
-                                                "parameter": [
-                                                    {
-                                                        "name": "y",
-                                                        "type": "int"
-                                                    },
-                                                    {
-                                                        "name": "d",
-                                                        "type": "int"
-                                                    }
-                                                ]
-                                            },
-                                            {
-                                                "name": "getYear",
-                                                "type": "int",
-                                                "parameter": []
-                                            },
-                                            {
-                                                "name": "getMonth",
-                                                "type": "String",
-                                                "parameter": []
-                                            },
-                                            {
-                                                "name": "getDay",
-                                                "type": "int",
-                                                "parameter": []
-                                            },
-                                            {
-                                                "name": "setYear",
-                                                "type": "void",
-                                                "parameter": [
-                                                    {
-                                                        "name": "year",
-                                                        "type": "int"
-                                                    }
-                                                ]
-                                            },
-                                            {
-                                                "name": "setMonth",
-                                                "type": "void",
-                                                "parameter": [
-                                                    {
-                                                        "name": "month",
-                                                        "type": "String"
-                                                    }
-                                                ]
-                                            },
-                                            {
-                                                "name": "setDay",
-                                                "type": "void",
-                                                "parameter": [
-                                                    {
-                                                        "name": "day",
-                                                        "type": "int"
-                                                    }
-                                                ]
-                                            },
-                                            {
-                                                "name": "writeOutput",
-                                                "type": "void",
-                                                "parameter": []
-                                            },
-                                            {
-                                                "name": "toString",
-                                                "type": "String",
-                                                "parameter": []
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "year",
-                                                "type": "int",
-                                                "visible": "private"
-                                            },
-                                            {
-                                                "name": "month",
-                                                "type": "String",
-                                                "visible": "private"
-                                            },
-                                            {
-                                                "name": "day",
-                                                "type": "int",
-                                                "visible": "private"
-                                            }
-                                        ]
-                                    },
+  "type": "uml_diagram",
+  "title": "Date",
+  "abstract": false,
+  "attributes": [
+    { "name": "year", "type": "int", "visibility": "private" },
+    { "name": "month", "type": "String", "visibility": "private" },
+    { "name": "day", "type": "int", "visibility": "private" }
+  ],
+  "methods": [
+    { "name": "Date", "parameters": [], "returnType": "constructor" },
+    { 
+      "name": "Date", 
+      "parameters": [
+        { "name": "year", "type": "int" },
+        { "name": "month", "type": "String" },
+        { "name": "day", "type": "int" }
+      ], 
+      "returnType": "constructor" 
+    },
+    { 
+      "name": "Date", 
+      "parameters": [
+        { "name": "y", "type": "int" },
+        { "name": "d", "type": "int" }
+      ], 
+      "returnType": "constructor" 
+    },
+    { "name": "getYear", "parameters": [], "returnType": "int" },
+    { "name": "getMonth", "parameters": [], "returnType": "String" },
+    { "name": "getDay", "parameters": [], "returnType": "int" },
+    { "name": "setYear", "parameters": [{ "name": "year", "type": "int" }], "returnType": "void" },
+    { "name": "setMonth", "parameters": [{ "name": "month", "type": "String" }], "returnType": "void" },
+    { "name": "setDay", "parameters": [{ "name": "day", "type": "int" }], "returnType": "void" },
+    { "name": "writeOutput", "parameters": [], "returnType": "void" },
+    { "name": "toString", "parameters": [], "returnType": "String" }
+  ],
+  "relations": []
+},
                                     {
                                         "type": "bullet_list",
                                         "items": [
@@ -29596,129 +29540,65 @@
                                         }
                                     },
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Person",
-                                        "methods": [
-                                            {
-                                                "name": "Person",
-                                                "parameters": [],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "getFullName",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            },
-                                            {
-                                                "name": "toString",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "fullName",
-                                                "type": "String",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "gender",
-                                                "type": "String",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "dayOfBirth",
-                                                "type": "int",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "monthOfBirth",
-                                                "type": "String",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "yearOfBirth",
-                                                "type": "int",
-                                                "visibility": "private"
-                                            }
-                                        ]
-                                    },
+  "type": "uml_diagram",
+  "title": "Person",
+  "abstract": false,
+  "attributes": [
+    { "name": "fullName", "type": "String", "visibility": "private" },
+    { "name": "gender", "type": "String", "visibility": "private" },
+    { "name": "dayOfBirth", "type": "int", "visibility": "private" },
+    { "name": "monthOfBirth", "type": "String", "visibility": "private" },
+    { "name": "yearOfBirth", "type": "int", "visibility": "private" }
+  ],
+  "methods": [
+    { "name": "Person", "parameters": [], "returnType": "constructor" },
+    { "name": "getFullName", "parameters": [], "returnType": "String" },
+    { "name": "toString", "parameters": [], "returnType": "String" }
+  ],
+  "relations": []
+},
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Student",
-                                        "methods": [
-                                            {
-                                                "name": "Student",
-                                                "parameters": [],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "getGpa",
-                                                "parameters": [],
-                                                "returnType": "double"
-                                            },
-                                            {
-                                                "name": "toString",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "id",
-                                                "type": "int",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "gpa",
-                                                "type": "double",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "major",
-                                                "type": "String",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "universityName",
-                                                "type": "String",
-                                                "visibility": "private"
-                                            }
-                                        ]
-                                    },
+  "type": "uml_diagram",
+  "title": "Student",
+  "abstract": false,
+  "attributes": [
+    { "name": "id", "type": "int", "visibility": "private" },
+    { "name": "gpa", "type": "double", "visibility": "private" },
+    { "name": "major", "type": "String", "visibility": "private" },
+    { "name": "universityName", "type": "String", "visibility": "private" }
+  ],
+  "methods": [
+    { "name": "Student", "parameters": [], "returnType": "constructor" },
+    { "name": "getGpa", "parameters": [], "returnType": "double" },
+    { "name": "toString", "parameters": [], "returnType": "String" }
+  ],
+  "relations": [
+    {
+      "target": "Person",
+      "type": "extends"
+    }
+  ]
+},
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Teacher",
-                                        "methods": [
-                                            {
-                                                "name": "Teacher",
-                                                "parameters": [],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "getPapers",
-                                                "parameters": [],
-                                                "returnType": "int"
-                                            },
-                                            {
-                                                "name": "toString",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "papers",
-                                                "type": "int",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "salary",
-                                                "type": "double",
-                                                "visibility": "private"
-                                            }
-                                        ]
-                                    }
+  "type": "uml_diagram",
+  "title": "Teacher",
+  "abstract": false,
+  "attributes": [
+    { "name": "papers", "type": "int", "visibility": "private" },
+    { "name": "salary", "type": "double", "visibility": "private" }
+  ],
+  "methods": [
+    { "name": "Teacher", "parameters": [], "returnType": "constructor" },
+    { "name": "getPapers", "parameters": [], "returnType": "int" },
+    { "name": "toString", "parameters": [], "returnType": "String" }
+  ],
+  "relations": [
+    {
+      "target": "Person",
+      "type": "extends"
+    }
+  ]
+}
                                 ],
                                 "pageId": 2,
                                 "pageTitle": "Inheritance Solution",
@@ -39523,88 +39403,39 @@
                                         "level": 2
                                     },
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Animal",
-                                        "methods": [
-                                            {
-                                                "name": "Animal",
-                                                "parameters": [
-                                                    {
-                                                        "name": "name",
-                                                        "type": "String"
-                                                    },
-                                                    {
-                                                        "name": "age",
-                                                        "type": "int"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "makeSound",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "toString",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "name",
-                                                "type": "String",
-                                                "visibility": "protected"
-                                            },
-                                            {
-                                                "name": "age",
-                                                "type": "int",
-                                                "visibility": "protected"
-                                            }
-                                        ]
-                                    },
+  "type": "uml_diagram",
+  "title": "Animal",
+  "abstract": false,
+  "attributes": [
+    { "name": "name", "type": "String", "visibility": "protected" },
+    { "name": "age", "type": "int", "visibility": "protected" }
+  ],
+  "methods": [
+    { "name": "Animal", "parameters": [{ "name": "name", "type": "String" }, { "name": "age", "type": "int" }], "returnType": "constructor" },
+    { "name": "makeSound", "parameters": [], "returnType": "void" },
+    { "name": "toString", "parameters": [], "returnType": "String" }
+  ],
+  "relations": []
+},
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Dog",
-                                        "methods": [
-                                            {
-                                                "name": "Dog",
-                                                "parameters": [
-                                                    {
-                                                        "name": "name",
-                                                        "type": "String"
-                                                    },
-                                                    {
-                                                        "name": "age",
-                                                        "type": "int"
-                                                    },
-                                                    {
-                                                        "name": "breed",
-                                                        "type": "String"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "makeSound",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "toString",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "breed",
-                                                "type": "String",
-                                                "visibility": "private"
-                                            }
-                                        ]
-                                    }
+  "type": "uml_diagram",
+  "title": "Dog",
+  "abstract": false,
+  "attributes": [
+    { "name": "breed", "type": "String", "visibility": "private" }
+  ],
+  "methods": [
+    { "name": "Dog", "parameters": [{ "name": "name", "type": "String" }, { "name": "age", "type": "int" }, { "name": "breed", "type": "String" }], "returnType": "constructor" },
+    { "name": "makeSound", "parameters": [], "returnType": "void" },
+    { "name": "toString", "parameters": [], "returnType": "String" }
+  ],
+  "relations": [
+    {
+      "target": "Animal",
+      "type": "extends"
+    }
+  ]
+}
                                 ],
                                 "pageId": 1,
                                 "pageTitle": "UML: Animal Hierarchy",
@@ -39886,286 +39717,180 @@
                                 "orderIndex": 6
                             },
                             {
-                                "blocks": [
-                                    {
-                                        "type": "code_challenge",
-                                        "example": {
-                                            "input": "",
-                                            "output": "Circle area: 78.54\nRectangle area: 24.00",
-                                            "explanation": "Circle: \u03c0\u00d75\u00b2\u224878.54, Rectangle: 4\u00d76=24.00"
-                                        },
-                                        "problem": "Create the Shape hierarchy shown above. <b>Shape</b> is abstract with abstract area() and concrete getType() returning \"Shape\". <b>Circle</b> and <b>Rectangle</b> extend Shape, overriding both methods. In main(), create a Shape[] with Circle(5) and Rectangle(4,6), loop printing type and area formatted to 2 decimals.",
-                                        "testCases": [
-                                            {
-                                                "input": "",
-                                                "expectedOutput": "Circle area: 78.54\nRectangle area: 24.00"
-                                            }
-                                        ],
-                                        "umlDiagram": [
-                                            {
-                                                "title": "Shape",
-                                                "methods": [
-                                                    {
-                                                        "name": "area",
-                                                        "abstract": true,
-                                                        "parameters": [],
-                                                        "returnType": "double"
-                                                    },
-                                                    {
-                                                        "name": "getType",
-                                                        "parameters": [],
-                                                        "returnType": "String"
-                                                    }
-                                                ],
-                                                "abstract": true,
-                                                "attributes": []
-                                            },
-                                            {
-                                                "title": "Circle",
-                                                "methods": [
-                                                    {
-                                                        "name": "Circle",
-                                                        "parameters": [
-                                                            {
-                                                                "name": "radius",
-                                                                "type": "double"
-                                                            }
-                                                        ],
-                                                        "returnType": "constructor"
-                                                    },
-                                                    {
-                                                        "name": "area",
-                                                        "parameters": [],
-                                                        "returnType": "double"
-                                                    },
-                                                    {
-                                                        "name": "getType",
-                                                        "parameters": [],
-                                                        "returnType": "String"
-                                                    }
-                                                ],
-                                                "attributes": [
-                                                    {
-                                                        "name": "radius",
-                                                        "type": "double",
-                                                        "visibility": "private"
-                                                    }
-                                                ]
-                                            },
-                                            {
-                                                "title": "Rectangle",
-                                                "methods": [
-                                                    {
-                                                        "name": "Rectangle",
-                                                        "parameters": [
-                                                            {
-                                                                "name": "width",
-                                                                "type": "double"
-                                                            },
-                                                            {
-                                                                "name": "height",
-                                                                "type": "double"
-                                                            }
-                                                        ],
-                                                        "returnType": "constructor"
-                                                    },
-                                                    {
-                                                        "name": "area",
-                                                        "parameters": [],
-                                                        "returnType": "double"
-                                                    },
-                                                    {
-                                                        "name": "getType",
-                                                        "parameters": [],
-                                                        "returnType": "String"
-                                                    }
-                                                ],
-                                                "attributes": [
-                                                    {
-                                                        "name": "width",
-                                                        "type": "double",
-                                                        "visibility": "private"
-                                                    },
-                                                    {
-                                                        "name": "height",
-                                                        "type": "double",
-                                                        "visibility": "private"
-                                                    }
-                                                ]
-                                            }
-                                        ],
-                                        "constraints": "Use Math.PI for circle area. Format output with System.out.printf(\"%s area: %.2f\n\", getType(), area()).",
-                                        "inputFormat": "No input required.",
-                                        "starterCode": {
-                                            "lines": [
-                                                "public class Main {",
-                                                "    public static void main(String[] args) {",
-                                                "        // Write your code here",
-                                                "    }",
-                                                "}"
-                                            ],
-                                            "language": "java"
-                                        },
-                                        "outputFormat": "Circle area: 78.54\nRectangle area: 24.00",
-                                        "hiddenTestCases": [
-                                            {
-                                                "input": "",
-                                                "expectedOutput": "Circle area: 78.54\nRectangle area: 24.00"
-                                            }
-                                        ]
-                                    }
-                                ],
-                                "pageId": 8,
-                                "pageTitle": "Challenge 1: Shape Hierarchy",
-                                "orderIndex": 7
-                            },
-                            {
-                                "blocks": [
-                                    {
-                                        "type": "code_challenge",
-                                        "example": {
-                                            "input": "",
-                                            "output": "Ali: 5000.00\nOmar: 8000.00",
-                                            "explanation": "Employee: 60000/12=5000, Contractor: 50\u00d7160=8000"
-                                        },
-                                        "problem": "Create the interface and classes shown above. <b>Payable</b> has getPayment(). <b>Employee</b> payment = salary/12. <b>Contractor</b> payment = hourlyRate\u00d7hours. In main(), create a Payable[] with Employee(\"Ali\",60000) and Contractor(\"Omar\",50,160), loop printing name and formatted payment.",
-                                        "testCases": [
-                                            {
-                                                "input": "",
-                                                "expectedOutput": "Ali: 5000.00\nOmar: 8000.00"
-                                            }
-                                        ],
-                                        "umlDiagram": [
-                                            {
-                                                "title": "Payable",
-                                                "methods": [
-                                                    {
-                                                        "name": "getPayment",
-                                                        "abstract": true,
-                                                        "parameters": [],
-                                                        "returnType": "double"
-                                                    }
-                                                ],
-                                                "attributes": [],
-                                                "isInterface": true
-                                            },
-                                            {
-                                                "title": "Employee",
-                                                "methods": [
-                                                    {
-                                                        "name": "Employee",
-                                                        "parameters": [
-                                                            {
-                                                                "name": "name",
-                                                                "type": "String"
-                                                            },
-                                                            {
-                                                                "name": "salary",
-                                                                "type": "double"
-                                                            }
-                                                        ],
-                                                        "returnType": "constructor"
-                                                    },
-                                                    {
-                                                        "name": "getName",
-                                                        "parameters": [],
-                                                        "returnType": "String"
-                                                    },
-                                                    {
-                                                        "name": "getPayment",
-                                                        "parameters": [],
-                                                        "returnType": "double"
-                                                    }
-                                                ],
-                                                "attributes": [
-                                                    {
-                                                        "name": "name",
-                                                        "type": "String",
-                                                        "visibility": "private"
-                                                    },
-                                                    {
-                                                        "name": "salary",
-                                                        "type": "double",
-                                                        "visibility": "private"
-                                                    }
-                                                ]
-                                            },
-                                            {
-                                                "title": "Contractor",
-                                                "methods": [
-                                                    {
-                                                        "name": "Contractor",
-                                                        "parameters": [
-                                                            {
-                                                                "name": "name",
-                                                                "type": "String"
-                                                            },
-                                                            {
-                                                                "name": "hourlyRate",
-                                                                "type": "double"
-                                                            },
-                                                            {
-                                                                "name": "hours",
-                                                                "type": "double"
-                                                            }
-                                                        ],
-                                                        "returnType": "constructor"
-                                                    },
-                                                    {
-                                                        "name": "getName",
-                                                        "parameters": [],
-                                                        "returnType": "String"
-                                                    },
-                                                    {
-                                                        "name": "getPayment",
-                                                        "parameters": [],
-                                                        "returnType": "double"
-                                                    }
-                                                ],
-                                                "attributes": [
-                                                    {
-                                                        "name": "name",
-                                                        "type": "String",
-                                                        "visibility": "private"
-                                                    },
-                                                    {
-                                                        "name": "hourlyRate",
-                                                        "type": "double",
-                                                        "visibility": "private"
-                                                    },
-                                                    {
-                                                        "name": "hours",
-                                                        "type": "double",
-                                                        "visibility": "private"
-                                                    }
-                                                ]
-                                            }
-                                        ],
-                                        "constraints": "Use System.out.printf(\"%s: %.2f\n\", getName(), getPayment()) for formatting.",
-                                        "inputFormat": "No input required.",
-                                        "starterCode": {
-                                            "lines": [
-                                                "public class Main {",
-                                                "    public static void main(String[] args) {",
-                                                "        // Write your code here",
-                                                "    }",
-                                                "}"
-                                            ],
-                                            "language": "java"
-                                        },
-                                        "outputFormat": "Ali: 5000.00\nOmar: 8000.00",
-                                        "hiddenTestCases": [
-                                            {
-                                                "input": "",
-                                                "expectedOutput": "Ali: 5000.00\nOmar: 8000.00"
-                                            }
-                                        ]
-                                    }
-                                ],
-                                "pageId": 9,
-                                "pageTitle": "Challenge 2: Payable Interface",
-                                "orderIndex": 8
-                            }
+  "blocks": [
+    {
+      "type": "code_challenge",
+      "example": {
+        "input": "",
+        "output": "Circle area: 78.54\nRectangle area: 24.00",
+        "explanation": "Circle: π×5²≈78.54, Rectangle: 4×6=24.00"
+      },
+      "problem": "Create the Shape hierarchy shown above. <b>Shape</b> is abstract with abstract area() and concrete getType() returning \"Shape\". <b>Circle</b> and <b>Rectangle</b> extend Shape, overriding both methods. In main(), create a Shape[] with Circle(5) and Rectangle(4,6), loop printing type and area formatted to 2 decimals.",
+      "testCases": [
+        {
+          "input": "",
+          "expectedOutput": "Circle area: 78.54\nRectangle area: 24.00"
+        }
+      ],
+      "umlDiagram": [
+        {
+          "type": "uml_diagram",
+          "title": "Shape",
+          "abstract": true,
+          "attributes": [],
+          "methods": [
+            { "name": "area", "parameters": [], "returnType": "double", "isAbstract": true },
+            { "name": "getType", "parameters": [], "returnType": "String" }
+          ],
+          "relations": []
+        },
+        {
+          "type": "uml_diagram",
+          "title": "Circle",
+          "abstract": false,
+          "attributes": [
+            { "name": "radius", "type": "double", "visibility": "private" }
+          ],
+          "methods": [
+            { "name": "Circle", "parameters": [{ "name": "radius", "type": "double" }], "returnType": "constructor" },
+            { "name": "area", "parameters": [], "returnType": "double" },
+            { "name": "getType", "parameters": [], "returnType": "String" }
+          ],
+          "relations": [
+            { "target": "Shape", "type": "extends" }
+          ]
+        },
+        {
+          "type": "uml_diagram",
+          "title": "Rectangle",
+          "abstract": false,
+          "attributes": [
+            { "name": "width", "type": "double", "visibility": "private" },
+            { "name": "height", "type": "double", "visibility": "private" }
+          ],
+          "methods": [
+            { "name": "Rectangle", "parameters": [{ "name": "width", "type": "double" }, { "name": "height", "type": "double" }], "returnType": "constructor" },
+            { "name": "area", "parameters": [], "returnType": "double" },
+            { "name": "getType", "parameters": [], "returnType": "String" }
+          ],
+          "relations": [
+            { "target": "Shape", "type": "extends" }
+          ]
+        }
+      ],
+      "constraints": "Use Math.PI for circle area. Format output with System.out.printf(\"%s area: %.2f\n\", getType(), area()).",
+      "inputFormat": "No input required.",
+      "starterCode": {
+        "lines": [
+          "public class Main {",
+          "    public static void main(String[] args) {",
+          "        // Write your code here",
+          "    }",
+          "}"
+        ],
+        "language": "java"
+      },
+      "outputFormat": "Circle area: 78.54\nRectangle area: 24.00",
+      "hiddenTestCases": [
+        {
+          "input": "",
+          "expectedOutput": "Circle area: 78.54\nRectangle area: 24.00"
+        }
+      ]
+    }
+  ],
+  "pageId": 8,
+  "pageTitle": "Challenge 1: Shape Hierarchy",
+  "orderIndex": 7
+},
+                           {
+  "blocks": [
+    {
+      "type": "code_challenge",
+      "example": {
+        "input": "",
+        "output": "Ali: 5000.00\nOmar: 8000.00",
+        "explanation": "Employee: 60000/12=5000, Contractor: 50×160=8000"
+      },
+      "problem": "Create the interface and classes shown above. <b>Payable</b> has getPayment(). <b>Employee</b> payment = salary/12. <b>Contractor</b> payment = hourlyRate×hours. In main(), create a Payable[] with Employee(\"Ali\",60000) and Contractor(\"Omar\",50,160), loop printing name and formatted payment.",
+      "testCases": [
+        {
+          "input": "",
+          "expectedOutput": "Ali: 5000.00\nOmar: 8000.00"
+        }
+      ],
+      "umlDiagram": [
+        {
+          "type": "uml_diagram",
+          "title": "Payable",
+          "abstract": true,
+          "attributes": [],
+          "methods": [
+            { "name": "getPayment", "parameters": [], "returnType": "double", "isAbstract": true }
+          ],
+          "relations": []
+        },
+        {
+          "type": "uml_diagram",
+          "title": "Employee",
+          "abstract": false,
+          "attributes": [
+            { "name": "name", "type": "String", "visibility": "private" },
+            { "name": "salary", "type": "double", "visibility": "private" }
+          ],
+          "methods": [
+            { "name": "Employee", "parameters": [{ "name": "name", "type": "String" }, { "name": "salary", "type": "double" }], "returnType": "constructor" },
+            { "name": "getName", "parameters": [], "returnType": "String" },
+            { "name": "getPayment", "parameters": [], "returnType": "double" }
+          ],
+          "relations": [
+            { "target": "Payable", "type": "implements" }
+          ]
+        },
+        {
+          "type": "uml_diagram",
+          "title": "Contractor",
+          "abstract": false,
+          "attributes": [
+            { "name": "name", "type": "String", "visibility": "private" },
+            { "name": "hourlyRate", "type": "double", "visibility": "private" },
+            { "name": "hours", "type": "double", "visibility": "private" }
+          ],
+          "methods": [
+            { "name": "Contractor", "parameters": [{ "name": "name", "type": "String" }, { "name": "hourlyRate", "type": "double" }, { "name": "hours", "type": "double" }], "returnType": "constructor" },
+            { "name": "getName", "parameters": [], "returnType": "String" },
+            { "name": "getPayment", "parameters": [], "returnType": "double" }
+          ],
+          "relations": [
+            { "target": "Payable", "type": "implements" }
+          ]
+        }
+      ],
+      "constraints": "Use System.out.printf(\"%s: %.2f\n\", getName(), getPayment()) for formatting.",
+      "inputFormat": "No input required.",
+      "starterCode": {
+        "lines": [
+          "public class Main {",
+          "    public static void main(String[] args) {",
+          "        // Write your code here",
+          "    }",
+          "}"
+        ],
+        "language": "java"
+      },
+      "outputFormat": "Ali: 5000.00\nOmar: 8000.00",
+      "hiddenTestCases": [
+        {
+          "input": "",
+          "expectedOutput": "Ali: 5000.00\nOmar: 8000.00"
+        }
+      ]
+    }
+  ],
+  "pageId": 9,
+  "pageTitle": "Challenge 2: Payable Interface",
+  "orderIndex": 8
+}
                         ]
                     },
                     {
@@ -40182,73 +39907,33 @@
                                         "type": "heading",
                                         "level": 2
                                     },
+                                   {
+  "type": "uml_diagram",
+  "title": "Vehicle",
+  "abstract": true,
+  "attributes": [
+    { "name": "brand", "type": "String", "visibility": "protected" },
+    { "name": "speed", "type": "int", "visibility": "protected" }
+  ],
+  "methods": [
+    { "name": "Vehicle", "parameters": [{ "name": "brand", "type": "String" }, { "name": "speed", "type": "int" }], "returnType": "constructor" },
+    { "name": "getBrand", "parameters": [], "returnType": "String" },
+    { "name": "accelerate", "parameters": [], "returnType": "void", "isAbstract": true },
+    { "name": "toString", "parameters": [], "returnType": "String" }
+  ],
+  "relations": []
+},
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Vehicle",
-                                        "methods": [
-                                            {
-                                                "name": "Vehicle",
-                                                "parameters": [
-                                                    {
-                                                        "name": "brand",
-                                                        "type": "String"
-                                                    },
-                                                    {
-                                                        "name": "speed",
-                                                        "type": "int"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "getBrand",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            },
-                                            {
-                                                "name": "accelerate",
-                                                "abstract": true,
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "toString",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "abstract": true,
-                                        "attributes": [
-                                            {
-                                                "name": "brand",
-                                                "type": "String",
-                                                "visibility": "protected"
-                                            },
-                                            {
-                                                "name": "speed",
-                                                "type": "int",
-                                                "visibility": "protected"
-                                            }
-                                        ]
-                                    },
-                                    {
-                                        "type": "uml_diagram",
-                                        "title": "Flyable",
-                                        "methods": [
-                                            {
-                                                "name": "takeOff",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "land",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            }
-                                        ],
-                                        "attributes": [],
-                                        "isInterface": true
-                                    }
+  "type": "uml_diagram",
+  "title": "Flyable",
+  "abstract": true,
+  "attributes": [],
+  "methods": [
+    { "name": "takeOff", "parameters": [], "returnType": "void" },
+    { "name": "land", "parameters": [], "returnType": "void" }
+  ],
+  "relations": []
+}
                                 ],
                                 "pageId": 1,
                                 "pageTitle": "UML: Vehicle & Flyable",
@@ -40788,105 +40473,38 @@
                                         "level": 2
                                     },
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Student",
-                                        "methods": [
-                                            {
-                                                "name": "Student",
-                                                "parameters": [
-                                                    {
-                                                        "name": "name",
-                                                        "type": "String"
-                                                    },
-                                                    {
-                                                        "name": "gpa",
-                                                        "type": "double"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "getName",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            },
-                                            {
-                                                "name": "getGpa",
-                                                "parameters": [],
-                                                "returnType": "double"
-                                            },
-                                            {
-                                                "name": "setGpa",
-                                                "parameters": [
-                                                    {
-                                                        "name": "gpa",
-                                                        "type": "double"
-                                                    }
-                                                ],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "toString",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "id",
-                                                "type": "int",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "name",
-                                                "type": "String",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "gpa",
-                                                "type": "double",
-                                                "visibility": "private"
-                                            }
-                                        ]
-                                    },
-                                    {
-                                        "type": "uml_diagram",
-                                        "title": "Course",
-                                        "methods": [
-                                            {
-                                                "name": "Course",
-                                                "parameters": [
-                                                    {
-                                                        "name": "name",
-                                                        "type": "String"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "enroll",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "getEnrollmentCount",
-                                                "parameters": [],
-                                                "returnType": "int"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "enrollmentCount",
-                                                "type": "int",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "courseName",
-                                                "type": "String",
-                                                "visibility": "private"
-                                            }
-                                        ]
-                                    }
+  "type": "uml_diagram",
+  "title": "Student",
+  "abstract": false,
+  "attributes": [
+    { "name": "id", "type": "int", "visibility": "private" },
+    { "name": "name", "type": "String", "visibility": "private" },
+    { "name": "gpa", "type": "double", "visibility": "private" }
+  ],
+  "methods": [
+    { "name": "Student", "parameters": [{ "name": "name", "type": "String" }, { "name": "gpa", "type": "double" }], "returnType": "constructor" },
+    { "name": "getName", "parameters": [], "returnType": "String" },
+    { "name": "getGpa", "parameters": [], "returnType": "double" },
+    { "name": "setGpa", "parameters": [{ "name": "gpa", "type": "double" }], "returnType": "void" },
+    { "name": "toString", "parameters": [], "returnType": "String" }
+  ],
+  "relations": []
+},
+                                   {
+  "type": "uml_diagram",
+  "title": "Course",
+  "abstract": false,
+  "attributes": [
+    { "name": "enrollmentCount", "type": "int", "visibility": "private" },
+    { "name": "courseName", "type": "String", "visibility": "private" }
+  ],
+  "methods": [
+    { "name": "Course", "parameters": [{ "name": "name", "type": "String" }], "returnType": "constructor" },
+    { "name": "enroll", "parameters": [], "returnType": "void" },
+    { "name": "getEnrollmentCount", "parameters": [], "returnType": "int" }
+  ],
+  "relations": []
+}
                                 ],
                                 "pageId": 2,
                                 "pageTitle": "UML: Student & Course",
@@ -41084,93 +40702,45 @@
                                         "level": 2
                                     },
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Vehicle",
-                                        "methods": [
-                                            {
-                                                "name": "Vehicle",
-                                                "parameters": [
-                                                    {
-                                                        "name": "brand",
-                                                        "type": "String"
-                                                    },
-                                                    {
-                                                        "name": "speed",
-                                                        "type": "int"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "getBrand",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            },
-                                            {
-                                                "name": "toString",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "brand",
-                                                "type": "String",
-                                                "visibility": "protected"
-                                            },
-                                            {
-                                                "name": "speed",
-                                                "type": "int",
-                                                "visibility": "protected"
-                                            }
-                                        ]
-                                    },
+  "type": "uml_diagram",
+  "title": "Vehicle",
+  "abstract": false,
+  "attributes": [
+    { "name": "brand", "type": "String", "visibility": "protected" },
+    { "name": "speed", "type": "int", "visibility": "protected" }
+  ],
+  "methods": [
+    { "name": "Vehicle", "parameters": [{ "name": "brand", "type": "String" }, { "name": "speed", "type": "int" }], "returnType": "constructor" },
+    { "name": "getBrand", "parameters": [], "returnType": "String" },
+    { "name": "toString", "parameters": [], "returnType": "String" }
+  ],
+  "relations": []
+},
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Car",
-                                        "methods": [
-                                            {
-                                                "name": "Car",
-                                                "parameters": [
-                                                    {
-                                                        "name": "brand",
-                                                        "type": "String"
-                                                    },
-                                                    {
-                                                        "name": "speed",
-                                                        "type": "int"
-                                                    },
-                                                    {
-                                                        "name": "doors",
-                                                        "type": "int"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "startEngine",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "toString",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "doors",
-                                                "type": "int",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "engine",
-                                                "type": "Engine",
-                                                "visibility": "private"
-                                            }
-                                        ]
-                                    }
+  "type": "uml_diagram",
+  "title": "Car",
+  "abstract": false,
+  "attributes": [
+    { "name": "doors", "type": "int", "visibility": "private" },
+    { "name": "engine", "type": "Engine", "visibility": "private" }
+  ],
+  "methods": [
+    { "name": "Car", "parameters": [{ "name": "brand", "type": "String" }, { "name": "speed", "type": "int" }, { "name": "doors", "type": "int" }], "returnType": "constructor" },
+    { "name": "startEngine", "parameters": [], "returnType": "void" },
+    { "name": "toString", "parameters": [], "returnType": "String" }
+  ],
+  "relations": [
+    {
+      "target": "Vehicle",
+      "type": "extends"
+    },
+    {
+      "target": "Engine",
+      "type": "composition",
+      "field": "engine"
+    }
+  ]
+}
                                 ],
                                 "pageId": 8,
                                 "pageTitle": "UML: Vehicle & Car",
@@ -41410,40 +40980,19 @@
                                         "level": 2
                                     },
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Shape",
-                                        "methods": [
-                                            {
-                                                "name": "Shape",
-                                                "parameters": [
-                                                    {
-                                                        "name": "color",
-                                                        "type": "String"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "area",
-                                                "abstract": true,
-                                                "parameters": [],
-                                                "returnType": "double"
-                                            },
-                                            {
-                                                "name": "toString",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "abstract": true,
-                                        "attributes": [
-                                            {
-                                                "name": "color",
-                                                "type": "String",
-                                                "visibility": "protected"
-                                            }
-                                        ]
-                                    }
+  "type": "uml_diagram",
+  "title": "Shape",
+  "abstract": true,
+  "attributes": [
+    { "name": "color", "type": "String", "visibility": "protected" }
+  ],
+  "methods": [
+    { "name": "Shape", "parameters": [{ "name": "color", "type": "String" }], "returnType": "constructor" },
+    { "name": "area", "parameters": [], "returnType": "double", "isAbstract": true },
+    { "name": "toString", "parameters": [], "returnType": "String" }
+  ],
+  "relations": []
+}
                                 ],
                                 "pageId": 13,
                                 "pageTitle": "UML: Shape Abstract Class",
@@ -41610,71 +41159,37 @@
                                         "level": 2
                                     },
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Drawable",
-                                        "methods": [
-                                            {
-                                                "name": "draw",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "resize",
-                                                "parameters": [
-                                                    {
-                                                        "name": "scale",
-                                                        "type": "double"
-                                                    }
-                                                ],
-                                                "returnType": "void"
-                                            }
-                                        ],
-                                        "attributes": [],
-                                        "isInterface": true
-                                    },
+  "type": "uml_diagram",
+  "title": "Drawable",
+  "abstract": true,
+  "attributes": [],
+  "methods": [
+    { "name": "draw", "parameters": [], "returnType": "void" },
+    { "name": "resize", "parameters": [{ "name": "scale", "type": "double" }], "returnType": "void" }
+  ],
+  "relations": []
+},
+                                    
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Circle",
-                                        "methods": [
-                                            {
-                                                "name": "Circle",
-                                                "parameters": [
-                                                    {
-                                                        "name": "r",
-                                                        "type": "double"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "draw",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "resize",
-                                                "parameters": [
-                                                    {
-                                                        "name": "scale",
-                                                        "type": "double"
-                                                    }
-                                                ],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "getArea",
-                                                "parameters": [],
-                                                "returnType": "double"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "radius",
-                                                "type": "double",
-                                                "visibility": "private"
-                                            }
-                                        ]
-                                    }
+  "type": "uml_diagram",
+  "title": "Circle",
+  "abstract": false,
+  "attributes": [
+    { "name": "radius", "type": "double", "visibility": "private" }
+  ],
+  "methods": [
+    { "name": "Circle", "parameters": [{ "name": "r", "type": "double" }], "returnType": "constructor" },
+    { "name": "draw", "parameters": [], "returnType": "void" },
+    { "name": "resize", "parameters": [{ "name": "scale", "type": "double" }], "returnType": "void" },
+    { "name": "getArea", "parameters": [], "returnType": "double" }
+  ],
+  "relations": [
+    {
+      "target": "Drawable",
+      "type": "implements"
+    }
+  ]
+}
                                 ],
                                 "pageId": 17,
                                 "pageTitle": "UML: Drawable Interface & Circle",
@@ -42562,130 +42077,50 @@
                                 "orderIndex": 0
                             },
                             {
-                                "blocks": [
-                                    {
-                                        "text": "Section 1: Encapsulation & Static Members",
-                                        "type": "heading",
-                                        "level": 2
-                                    },
-                                    {
-                                        "type": "uml_diagram",
-                                        "title": "BankAccount",
-                                        "methods": [
-                                            {
-                                                "name": "BankAccount",
-                                                "parameters": [
-                                                    {
-                                                        "name": "accountNumber",
-                                                        "type": "String"
-                                                    },
-                                                    {
-                                                        "name": "initialBalance",
-                                                        "type": "double"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "getBalance",
-                                                "parameters": [],
-                                                "returnType": "double"
-                                            },
-                                            {
-                                                "name": "deposit",
-                                                "parameters": [
-                                                    {
-                                                        "name": "amount",
-                                                        "type": "double"
-                                                    }
-                                                ],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "withdraw",
-                                                "parameters": [
-                                                    {
-                                                        "name": "amount",
-                                                        "type": "double"
-                                                    }
-                                                ],
-                                                "returnType": "boolean"
-                                            },
-                                            {
-                                                "name": "getTotalAccounts",
-                                                "isStatic": true,
-                                                "parameters": [],
-                                                "returnType": "int"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "accountNumber",
-                                                "type": "String",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "balance",
-                                                "type": "double",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "totalAccounts",
-                                                "type": "int",
-                                                "isStatic": true,
-                                                "visibility": "private"
-                                            }
-                                        ]
-                                    },
-                                    {
-                                        "type": "uml_diagram",
-                                        "title": "Transaction",
-                                        "methods": [
-                                            {
-                                                "name": "Transaction",
-                                                "parameters": [
-                                                    {
-                                                        "name": "amount",
-                                                        "type": "double"
-                                                    },
-                                                    {
-                                                        "name": "type",
-                                                        "type": "String"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "getTransactionCount",
-                                                "isStatic": true,
-                                                "parameters": [],
-                                                "returnType": "int"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "transactionCount",
-                                                "type": "int",
-                                                "isStatic": true,
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "amount",
-                                                "type": "double",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "type",
-                                                "type": "String",
-                                                "visibility": "private"
-                                            }
-                                        ]
-                                    }
-                                ],
-                                "pageId": 2,
-                                "pageTitle": "UML: BankAccount & Transaction",
-                                "orderIndex": 1
-                            },
+  "blocks": [
+    {
+      "text": "Section 1: Encapsulation & Static Members",
+      "type": "heading",
+      "level": 2
+    },
+    {
+      "type": "uml_diagram",
+      "title": "BankAccount",
+      "abstract": false,
+      "attributes": [
+        { "name": "accountNumber", "type": "String", "visibility": "private" },
+        { "name": "balance", "type": "double", "visibility": "private" },
+        { "name": "totalAccounts", "type": "int", "visibility": "private", "isStatic": true }
+      ],
+      "methods": [
+        { "name": "BankAccount", "parameters": [{ "name": "accountNumber", "type": "String" }, { "name": "initialBalance", "type": "double" }], "returnType": "constructor" },
+        { "name": "getBalance", "parameters": [], "returnType": "double" },
+        { "name": "deposit", "parameters": [{ "name": "amount", "type": "double" }], "returnType": "void" },
+        { "name": "withdraw", "parameters": [{ "name": "amount", "type": "double" }], "returnType": "boolean" },
+        { "name": "getTotalAccounts", "parameters": [], "returnType": "int", "isStatic": true }
+      ],
+      "relations": []
+    },
+    {
+      "type": "uml_diagram",
+      "title": "Transaction",
+      "abstract": false,
+      "attributes": [
+        { "name": "transactionCount", "type": "int", "visibility": "private", "isStatic": true },
+        { "name": "amount", "type": "double", "visibility": "private" },
+        { "name": "type", "type": "String", "visibility": "private" }
+      ],
+      "methods": [
+        { "name": "Transaction", "parameters": [{ "name": "amount", "type": "double" }, { "name": "type", "type": "String" }], "returnType": "constructor" },
+        { "name": "getTransactionCount", "parameters": [], "returnType": "int", "isStatic": true }
+      ],
+      "relations": []
+    }
+  ],
+  "pageId": 2,
+  "pageTitle": "UML: BankAccount & Transaction",
+  "orderIndex": 1
+},
                             {
                                 "blocks": [
                                     {
@@ -42891,93 +42326,45 @@
                                         "level": 2
                                     },
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Device",
-                                        "methods": [
-                                            {
-                                                "name": "Device",
-                                                "parameters": [
-                                                    {
-                                                        "name": "model",
-                                                        "type": "String"
-                                                    },
-                                                    {
-                                                        "name": "price",
-                                                        "type": "double"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "getModel",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            },
-                                            {
-                                                "name": "getInfo",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "model",
-                                                "type": "String",
-                                                "visibility": "protected"
-                                            },
-                                            {
-                                                "name": "price",
-                                                "type": "double",
-                                                "visibility": "protected"
-                                            }
-                                        ]
-                                    },
+  "type": "uml_diagram",
+  "title": "Device",
+  "abstract": false,
+  "attributes": [
+    { "name": "model", "type": "String", "visibility": "protected" },
+    { "name": "price", "type": "double", "visibility": "protected" }
+  ],
+  "methods": [
+    { "name": "Device", "parameters": [{ "name": "model", "type": "String" }, { "name": "price", "type": "double" }], "returnType": "constructor" },
+    { "name": "getModel", "parameters": [], "returnType": "String" },
+    { "name": "getInfo", "parameters": [], "returnType": "String" }
+  ],
+  "relations": []
+},
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Laptop",
-                                        "methods": [
-                                            {
-                                                "name": "Laptop",
-                                                "parameters": [
-                                                    {
-                                                        "name": "model",
-                                                        "type": "String"
-                                                    },
-                                                    {
-                                                        "name": "price",
-                                                        "type": "double"
-                                                    },
-                                                    {
-                                                        "name": "ram",
-                                                        "type": "int"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "getInfo",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            },
-                                            {
-                                                "name": "bootUp",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "ram",
-                                                "type": "int",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "processor",
-                                                "type": "Processor",
-                                                "visibility": "private"
-                                            }
-                                        ]
-                                    }
+  "type": "uml_diagram",
+  "title": "Laptop",
+  "abstract": false,
+  "attributes": [
+    { "name": "ram", "type": "int", "visibility": "private" },
+    { "name": "processor", "type": "Processor", "visibility": "private" }
+  ],
+  "methods": [
+    { "name": "Laptop", "parameters": [{ "name": "model", "type": "String" }, { "name": "price", "type": "double" }, { "name": "ram", "type": "int" }], "returnType": "constructor" },
+    { "name": "getInfo", "parameters": [], "returnType": "String" },
+    { "name": "bootUp", "parameters": [], "returnType": "void" }
+  ],
+  "relations": [
+    {
+      "target": "Device",
+      "type": "extends"
+    },
+    {
+      "target": "Processor",
+      "type": "composition",
+      "field": "processor"
+    }
+  ]
+}
                                 ],
                                 "pageId": 8,
                                 "pageTitle": "UML: Device & Laptop",
@@ -43208,40 +42595,19 @@
                                         "level": 2
                                     },
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Notifier",
-                                        "methods": [
-                                            {
-                                                "name": "Notifier",
-                                                "parameters": [
-                                                    {
-                                                        "name": "message",
-                                                        "type": "String"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "send",
-                                                "abstract": true,
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "getMessage",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "abstract": true,
-                                        "attributes": [
-                                            {
-                                                "name": "message",
-                                                "type": "String",
-                                                "visibility": "protected"
-                                            }
-                                        ]
-                                    }
+  "type": "uml_diagram",
+  "title": "Notifier",
+  "abstract": true,
+  "attributes": [
+    { "name": "message", "type": "String", "visibility": "protected" }
+  ],
+  "methods": [
+    { "name": "Notifier", "parameters": [{ "name": "message", "type": "String" }], "returnType": "constructor" },
+    { "name": "send", "parameters": [], "returnType": "void", "isAbstract": true },
+    { "name": "getMessage", "parameters": [], "returnType": "String" }
+  ],
+  "relations": []
+}
                                 ],
                                 "pageId": 13,
                                 "pageTitle": "UML: Notifier Abstract Class",
@@ -43409,76 +42775,39 @@
                                         "level": 2
                                     },
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "Connectable",
-                                        "methods": [
-                                            {
-                                                "name": "connect",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "disconnect",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "isConnected",
-                                                "parameters": [],
-                                                "returnType": "boolean"
-                                            }
-                                        ],
-                                        "attributes": [],
-                                        "isInterface": true
-                                    },
+  "type": "uml_diagram",
+  "title": "Connectable",
+  "abstract": true,
+  "attributes": [],
+  "methods": [
+    { "name": "connect", "parameters": [], "returnType": "void" },
+    { "name": "disconnect", "parameters": [], "returnType": "void" },
+    { "name": "isConnected", "parameters": [], "returnType": "boolean" }
+  ],
+  "relations": []
+},
                                     {
-                                        "type": "uml_diagram",
-                                        "title": "WifiModule",
-                                        "methods": [
-                                            {
-                                                "name": "WifiModule",
-                                                "parameters": [
-                                                    {
-                                                        "name": "networkName",
-                                                        "type": "String"
-                                                    }
-                                                ],
-                                                "returnType": "constructor"
-                                            },
-                                            {
-                                                "name": "connect",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "disconnect",
-                                                "parameters": [],
-                                                "returnType": "void"
-                                            },
-                                            {
-                                                "name": "isConnected",
-                                                "parameters": [],
-                                                "returnType": "boolean"
-                                            },
-                                            {
-                                                "name": "getNetworkName",
-                                                "parameters": [],
-                                                "returnType": "String"
-                                            }
-                                        ],
-                                        "attributes": [
-                                            {
-                                                "name": "networkName",
-                                                "type": "String",
-                                                "visibility": "private"
-                                            },
-                                            {
-                                                "name": "connected",
-                                                "type": "boolean",
-                                                "visibility": "private"
-                                            }
-                                        ]
-                                    }
+  "type": "uml_diagram",
+  "title": "WifiModule",
+  "abstract": false,
+  "attributes": [
+    { "name": "networkName", "type": "String", "visibility": "private" },
+    { "name": "connected", "type": "boolean", "visibility": "private" }
+  ],
+  "methods": [
+    { "name": "WifiModule", "parameters": [{ "name": "networkName", "type": "String" }], "returnType": "constructor" },
+    { "name": "connect", "parameters": [], "returnType": "void" },
+    { "name": "disconnect", "parameters": [], "returnType": "void" },
+    { "name": "isConnected", "parameters": [], "returnType": "boolean" },
+    { "name": "getNetworkName", "parameters": [], "returnType": "String" }
+  ],
+  "relations": [
+    {
+      "target": "Connectable",
+      "type": "implements"
+    }
+  ]
+}
                                 ],
                                 "pageId": 17,
                                 "pageTitle": "UML: Connectable Interface & WifiModule",
@@ -45293,6 +44622,14 @@
                         ]
                     }
                 ],
+                "questions": []
+            },
+            {
+                "id": 5,
+                "title": "Data Structures",
+                "description": "Organize and manage data efficiently \u2014 explore arrays, linked lists, stacks, queues, trees, hash tables, and understand when to use each.",
+                "orderIndex": 2,
+                "lessons": [],
                 "questions": []
             }
         ]

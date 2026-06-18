@@ -142,28 +142,7 @@ const LearningPathPage = () => {
 
       const isComplete = uniqueLessons.length > 0 && completedLessons.length === uniqueLessons.length;
 
-      let isUnlocked = sIndex === 0;
-      if (sIndex > 0) {
-        const prevSection = course.sections[sIndex - 1];
-        const prevLessons = backendLessons[prevSection.id] || prevSection.lessons || [];
-
-        const uniquePrevLessons = [];
-        const seenPrevTitles = new Set();
-        prevLessons.forEach(pl => {
-          const norm = (pl.title || '').trim().toLowerCase();
-          if (norm && !seenPrevTitles.has(norm)) {
-            seenPrevTitles.add(norm);
-            uniquePrevLessons.push(pl);
-          }
-        });
-
-        const prevSectionCompleted = uniquePrevLessons.filter(pl => {
-          const duplicates = prevLessons.filter(dl => (dl.title || '').trim().toLowerCase() === (pl.title || '').trim().toLowerCase());
-          return duplicates.some(dl => (scores[dl.id] || 0) >= 70);
-        });
-
-        isUnlocked = uniquePrevLessons.length > 0 && prevSectionCompleted.length === uniquePrevLessons.length;
-      }
+      let isUnlocked = true; // unlock all sections and let learners access any section immediately
 
       return {
         ...section,
@@ -322,17 +301,7 @@ const LearningPathPage = () => {
       });
 
       const isPassed = score >= 70;
-
-      let isPreviousPassed = index === 0;
-      if (index > 0) {
-        const prevLesson = lessons[index - 1];
-        const prevDuplicates = rawList.filter(dl => (dl.title || '').trim().toLowerCase() === (prevLesson.title || '').trim().toLowerCase());
-        isPreviousPassed = prevDuplicates.some(dl => (scores[dl.id] || 0) >= 70);
-      }
-
-      let status = 'upcoming';
-      if (isPassed) status = 'completed';
-      else if (isPreviousPassed) status = 'active';
+      const status = isPassed ? 'completed' : 'active';
 
       // Group and calculate dynamic height gap for new chapters
       const rawChapter = lesson.chapterName || 'General';

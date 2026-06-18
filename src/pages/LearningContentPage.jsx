@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
+import { CppPlaygroundDialog } from '../components/CppPlaygroundDialog';
 import { UmlDiagram } from '../components/course/UmlDiagram';
 import {
   Box,
@@ -22,7 +23,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton
+  IconButton,
+  Grid,
+  Modal,
+  Fade,
+  Backdrop
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -31,7 +36,17 @@ import {
   Cancel as CancelIcon,
   Code as CodeIcon,
   Terminal as TerminalIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  MenuBook as BookIcon,
+  ChevronLeft as LeftIcon,
+  ChevronRight as RightIcon,
+  CheckCircle as CheckCircleIcon,
+  EmojiEvents as TrophyIcon,
+  Warning as WarningIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon,
+  PlayArrow as PlayArrowIcon,
+  HelpOutline as HelpOutlineIcon
 } from '@mui/icons-material';
 import { loadCourseFile, normalizeCourse, findCourseByIdOrSlug } from '../utils/courseData.js';
 import './LearningContentPage.css';
@@ -335,6 +350,59 @@ const groupIntoVisualLines = (flatLines) => {
   return rows;
 };
 
+const getCompletedCode = (question, values = null) => {
+  const visualLines = groupIntoVisualLines(question.codeTemplateLines || question.codeTemplate?.lines);
+  let inputIdx = 0;
+
+  return visualLines.map(lineGroup => {
+    return lineGroup.map(part => {
+      if (part.type === 'input') {
+        if (values === null) {
+          return part.expectedAnswer || '';
+        }
+        const val = values[inputIdx] !== undefined ? values[inputIdx] : '';
+        inputIdx++;
+        return val;
+      }
+      return part.content || part.content === '' ? part.content : '';
+    }).join('');
+  }).join('\n');
+};
+
+const getCodeTemplate = (block) => {
+  const template = block?.codeTemplate || block?.raw?.codeTemplate || {};
+  return {
+    ...template,
+    language: template.language || block?.raw?.language || block?.language || 'code',
+    lines: template.lines || block?.raw?.lines || block?.lines || [],
+  };
+};
+const getCodeLines = (block) => getCodeTemplate(block).lines || [];
+
+const getIndentation = (visualLines, lineIdx) => {
+  for (let i = lineIdx - 1; i >= 0; i--) {
+    const prevLine = visualLines[i];
+    if (prevLine && prevLine.length > 0 && prevLine[0].type === 'code') {
+      const content = prevLine[0].content || '';
+      const match = content.match(/^(\s+)/);
+      if (match) {
+        return match[1];
+      }
+    }
+  }
+  for (let i = lineIdx + 1; i < visualLines.length; i++) {
+    const nextLine = visualLines[i];
+    if (nextLine && nextLine.length > 0 && nextLine[0].type === 'code') {
+      const content = nextLine[0].content || '';
+      const match = content.match(/^(\s+)/);
+      if (match) {
+        return match[1];
+      }
+    }
+  }
+  return '';
+};
+
 const _blockKey = (page, blockIndex) => `${page.pageId || page.orderIndex}-${blockIndex}`;
 
 const InlineMcqWidget = ({
@@ -496,9 +564,9 @@ const InlineCodeExerciseWidget = ({
 
   const handleCheck = () => {
     if (isChecking) return;
-    const blanks = codeLines.filter(line => line.type === 'input');
-    const hasEmptyField = blanks.some((line, idx) => {
-      const value = String(inputValues[idx] || '').trim();
+    const inputLines = codeLines.filter(line => line.type === 'input');
+    const hasEmptyField = inputLines.some((_, blankIdx) => {
+      const value = String(inputValues[blankIdx] || '').trim();
       return value.length === 0;
     });
 
@@ -512,16 +580,18 @@ const InlineCodeExerciseWidget = ({
 
     const newStatuses = {};
     let allCorrect = true;
+    let blankIdx = 0;
 
-    codeLines.forEach((line, idx) => {
+    codeLines.forEach((line) => {
       if (line.type === 'input') {
-        const actual = String(inputValues[idx] || '').trim();
+        const actual = String(inputValues[blankIdx] || '').trim();
         const expected = String(line.expectedAnswer || '').trim();
         const normActual = actual.replace(/\s+/g, '').replace(/;+$/, '').toLowerCase();
         const normExpected = expected.replace(/\s+/g, '').replace(/;+$/, '').toLowerCase();
         const correct = normActual === normExpected;
-        newStatuses[idx] = correct ? 'correct' : 'incorrect';
+        newStatuses[blankIdx] = correct ? 'correct' : 'incorrect';
         if (!correct) allCorrect = false;
+        blankIdx += 1;
       }
     });
 
@@ -558,41 +628,66 @@ const InlineCodeExerciseWidget = ({
 
       <Box sx={{ background: 'rgba(0,0,0,0.08)', borderRadius: 3, p: 2, mb: 2, overflowX: 'auto' }}>
         <pre style={{ margin: 0 }}>
-          {visualRows.map((row, rowIdx) => (
-            <div key={rowIdx} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', minHeight: '28px' }}>
-              {row.map((item, itemIdx) => {
-                const line = item;
-                if (line.type === 'input') {
-                  const value = inputValues[itemIdx] || '';
-                  const status = statuses[itemIdx];
-                  const width = line.width || 12;
+          {(() => {
+            let blankIndex = 0;
+            return visualRows.map((row, rowIdx) => (
+              <div key={rowIdx} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', minHeight: '28px' }}>
+                {row.map((item, itemIdx) => {
+                  const line = item;
+                  if (line.type === 'input') {
+                    const currentIndex = blankIndex;
+                    const value = inputValues[currentIndex] || '';
+                    const status = statuses[currentIndex];
+                    const width = line.width || 12;
+                    blankIndex += 1;
 
-                  if (answered) {
-                    return (
-                      <span key={itemIdx} style={{ color: status === 'correct' ? '#4CAF50' : '#ef5350', fontWeight: 800, margin: '0 6px', borderBottom: `2px solid ${status === 'correct' ? '#4CAF50' : '#ef5350'}` }}>
-                        {value || line.expectedAnswer}
-                      </span>
-                    );
-                  }
+                    if (answered) {
+                      return (
+                        <span key={`input-${currentIndex}`} style={{ color: status === 'correct' ? '#4CAF50' : '#ef5350', fontWeight: 800, margin: '0 6px', borderBottom: `2px solid ${status === 'correct' ? '#4CAF50' : '#ef5350'}` }}>
+                          {value || line.expectedAnswer}
+                        </span>
+                      );
+                    }
 
-                  if (line.multiline) {
+                    if (line.multiline) {
+                      return (
+                        <textarea
+                          key={`input-${currentIndex}`}
+                          value={value}
+                          onChange={(event) => handleInputChange(currentIndex, event.target.value)}
+                          placeholder="// type code here..."
+                          style={{
+                            width: '100%',
+                            minHeight: '90px',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1.5px solid rgba(255,255,255,0.12)',
+                            borderRadius: '10px',
+                            color: 'inherit',
+                            fontFamily: 'Roboto Mono, monospace',
+                            padding: '10px',
+                            margin: '6px 0',
+                            resize: 'vertical',
+                            fontSize: '0.86rem'
+                          }}
+                        />
+                      );
+                    }
+
                     return (
-                      <textarea
-                        key={itemIdx}
+                      <input
+                        key={`input-${currentIndex}`}
+                        type="text"
                         value={value}
-                        onChange={(event) => handleInputChange(itemIdx, event.target.value)}
-                        placeholder="// type code here..."
+                        onChange={(event) => handleInputChange(currentIndex, event.target.value)}
                         style={{
-                          width: '100%',
-                          minHeight: '90px',
+                          width: `${Math.min(Math.max(width, 4), 32) * 10 + 16}px`,
                           background: 'rgba(255,255,255,0.05)',
                           border: '1.5px solid rgba(255,255,255,0.12)',
-                          borderRadius: '10px',
+                          borderRadius: '8px',
                           color: 'inherit',
                           fontFamily: 'Roboto Mono, monospace',
-                          padding: '10px',
-                          margin: '6px 0',
-                          resize: 'vertical',
+                          padding: '4px 8px',
+                          margin: '0 6px',
                           fontSize: '0.86rem'
                         }}
                       />
@@ -600,34 +695,14 @@ const InlineCodeExerciseWidget = ({
                   }
 
                   return (
-                    <input
-                      key={itemIdx}
-                      type="text"
-                      value={value}
-                      onChange={(event) => handleInputChange(itemIdx, event.target.value)}
-                      style={{
-                        width: `${Math.min(Math.max(width, 4), 32) * 10 + 16}px`,
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1.5px solid rgba(255,255,255,0.12)',
-                        borderRadius: '8px',
-                        color: 'inherit',
-                        fontFamily: 'Roboto Mono, monospace',
-                        padding: '4px 8px',
-                        margin: '0 6px',
-                        fontSize: '0.86rem'
-                      }}
-                    />
+                    <span key={`code-${rowIdx}-${itemIdx}`} style={{ whiteSpace: 'pre' }}>
+                      {highlightCppCode(line.content || '', isDarkMode)}
+                    </span>
                   );
-                }
-
-                return (
-                  <span key={itemIdx} style={{ whiteSpace: 'pre' }}>
-                    {highlightCppCode(line.content || '', isDarkMode)}
-                  </span>
-                );
-              })}
-            </div>
-          ))}
+                })}
+              </div>
+            ));
+          })()}
         </pre>
       </Box>
 
@@ -823,6 +898,11 @@ const LearningContentPage = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedChallenge, setSelectedChallenge] = useState(null);
   const [isChallengeOpen, setIsChallengeOpen] = useState(false);
+  const [isCompilerOpen, setIsCompilerOpen] = useState(false);
+  const [compilerInitialCode, setCompilerInitialCode] = useState('');
+  const isComputerScience = useMemo(() => {
+    return courseId?.toLowerCase()?.includes('computer-science') || String(courseId) === '2';
+  }, [courseId]);
 
   useEffect(() => {
     const loadLesson = async () => {
@@ -895,7 +975,7 @@ const LearningContentPage = () => {
       return typeof answers[key] === 'number';
     }
     if (block.type === 'fill_code' || block.type === 'write_line') {
-      const inputs = (block.codeTemplate?.lines || []).filter(line => line.type === 'input');
+      const inputs = getCodeLines(block).filter(line => line.type === 'input');
       return inputs.every((input, idx) => {
         const inputKey = `${key}-${idx}`;
         return String(fillCodeValues[inputKey] || '').trim().length > 0;
@@ -927,7 +1007,7 @@ const LearningContentPage = () => {
           }
         }
         if (block.type === 'fill_code' || block.type === 'write_line') {
-          const inputs = (block.codeTemplate?.lines || []).filter(line => line.type === 'input');
+          const inputs = getCodeLines(block).filter(line => line.type === 'input');
           if (inputs.length > 0) {
             total += 1;
             const allCorrect = inputs.every((input, idx) => isInputCorrect(input, `${key}-${idx}`));
@@ -1057,29 +1137,57 @@ const LearningContentPage = () => {
             )}
           </Box>
         );
-      case 'normal_code':
+      case 'normal_code': {
+        const snippet = block.codeSnippet || block.raw?.codeSnippet || {};
+        const language = snippet.language || block.raw?.language || block.language || 'code';
+        const rawLines = snippet.lines || block.raw?.lines || block.lines || block.text?.split('\n') || [];
+        const isCpp = language.toLowerCase() === 'cpp' || language.toLowerCase() === 'c++';
+        const isRunable = block.runable !== false && (block.raw?.runable !== false);
+
         return (
-          <Paper key={key} variant="outlined" sx={{ mb: 2, p: 2, bgcolor: 'background.paper' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                {block.codeSnippet?.language ? block.codeSnippet.language.toUpperCase() : 'CODE'}
-              </Typography>
-              {block.fileName && (
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  {block.fileName}
-                </Typography>
+          <Paper key={key} className="slide-code-card" elevation={0}>
+            <div className="code-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CodeIcon fontSize="small" className="code-header-icon" />
+                <span>{language.toUpperCase()}</span>
+              </div>
+              {isCpp && isComputerScience && isRunable && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  startIcon={<PlayArrowIcon sx={{ fontSize: 14 }} />}
+                  onClick={() => {
+                    setCompilerInitialCode(rawLines.join('\n'));
+                    setIsCompilerOpen(true);
+                  }}
+                  style={{
+                    padding: '3px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    background: 'var(--hero-gradient)',
+                    color: '#fff',
+                    boxShadow: '0 4px 10px rgba(var(--primary-main-rgb), 0.2)'
+                  }}
+                >
+                  Run Code
+                </Button>
               )}
-            </Box>
-            <Box component="pre" sx={{ m: 0, p: 2, bgcolor: 'background.default', borderRadius: 2, overflowX: 'auto', fontFamily: 'Roboto Mono, monospace', fontSize: '0.9rem' }}>
-              {(block.codeSnippet?.lines || []).map((line, lineIdx) => (
-                <Box key={lineIdx} sx={{ display: 'flex' }}>
-                  <Box sx={{ width: '2.3rem', opacity: 0.48, textAlign: 'right', pr: 1, userSelect: 'none' }}>{lineIdx + 1}</Box>
-                  <Box sx={{ whiteSpace: 'pre-wrap', flex: 1 }}>{line}</Box>
-                </Box>
-              ))}
-            </Box>
+            </div>
+            <div className="code-card-body">
+              <pre className="code-pre">
+                {rawLines.map((line, lIdx) => (
+                  <div key={lIdx} className="code-line">
+                    <span className="code-line-number">{lIdx + 1}</span>
+                    <span className="code-line-content">{highlightCppCode(line, theme.palette.mode === 'dark')}</span>
+                  </div>
+                ))}
+              </pre>
+            </div>
           </Paper>
         );
+      }
       case 'mcq':
       case 'find_error':
         return (
@@ -1103,7 +1211,7 @@ const LearningContentPage = () => {
             blockType={block.type}
             instruction={block.instruction || ''}
             fileName={block.fileName}
-            codeTemplate={block.codeTemplate}
+            codeTemplate={getCodeTemplate(block)}
             testCases={block.testCases || []}
             initiallyAnswered={false}
             initialInputValues={null}
@@ -1197,79 +1305,80 @@ const LearningContentPage = () => {
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }} className="learning-content-page">
-      <Box className="learning-content-meta">
-        <Button startIcon={<ArrowBackIcon />} onClick={handleGoBack} sx={{ mb: 3, textTransform: 'none' }}>
-          Back to Roadmap
-        </Button>
-        <Typography variant="h4" sx={{ mb: 1, fontWeight: 900 }}>
-          {lesson.title}
-        </Typography>
-        <Typography variant="subtitle1" sx={{ mb: 2, color: 'text.secondary' }}>
-          {lesson.chapterName || course.title}
-        </Typography>
-        <Paper variant="outlined" sx={{ p: 3, mb: 4 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-            <Box sx={{ flex: 1, minWidth: 240 }}>
-              <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
-                Lesson Progress
+    <Box className="learning-content-page">
+      <header className="learning-content-header glass-panel">
+        <Container maxWidth="lg" className="learning-header-content">
+          <div className="learning-header-left">
+            <IconButton onClick={() => navigate(-1)} className="learning-back-btn">
+              <ArrowBackIcon />
+            </IconButton>
+            <div>
+              <Typography variant="h6" className="learning-lesson-title">
+                {lesson.title}
               </Typography>
-              <LinearProgress variant="determinate" value={progress} sx={{ height: 10, borderRadius: 5 }} />
-            </Box>
-            <Typography variant="body2" sx={{ minWidth: 80, color: 'text.secondary' }}>
-              {progress}%
-            </Typography>
+              <Typography variant="caption" className="learning-progress-text">
+                Slide {currentPageIndex + 1} of {pages.length}
+              </Typography>
+            </div>
+          </div>
+          <IconButton onClick={() => {
+            const originalCourseId = location.state?.course?.id || courseId;
+            navigate(`/learning-path/${originalCourseId}`, { state: location.state });
+          }} className="learning-close-btn">
+            <CloseIcon />
+          </IconButton>
+        </Container>
+        <LinearProgress
+          variant="determinate"
+          value={progress}
+          className="learning-progress-bar"
+        />
+      </header>
+
+      <Container maxWidth="md" className="learning-slide-deck">
+        {currentPage && (
+          <Box className="learning-slide-container">
+            <Paper className="learning-slide-paper glass-panel-strong" elevation={0}>
+              {currentPage.pageTitle && (
+                <Typography variant="h4" className="slide-page-title" gutterBottom>
+                  {currentPage.pageTitle}
+                </Typography>
+              )}
+              <div className="slide-blocks-list">
+                {currentPage.blocks?.map((block, idx) => renderBlock(block, currentPage, currentPageIndex, idx))}
+              </div>
+            </Paper>
           </Box>
-        </Paper>
-      </Box>
+        )}
+      </Container>
 
-      {currentPage ? (
-        <Box>
-          <Typography variant="h5" className="slide-page-title" dangerouslySetInnerHTML={{ __html: currentPage.pageTitle || `Page ${currentPageIndex + 1}` }} />
-          <Box className="slide-blocks-list">
-            {currentPage.blocks?.map((block, blockIndex) => renderBlock(block, currentPage, currentPageIndex, blockIndex))}
-          </Box>
-        </Box>
-      ) : (
-        <Typography variant="body1">This lesson does not contain page content yet.</Typography>
-      )}
+      <footer className="learning-content-footer glass-panel">
+        <Container maxWidth="md" className="learning-footer-content">
+          <Button
+            variant="outlined"
+            onClick={() => handlePageChange(-1)}
+            disabled={currentPageIndex === 0}
+            startIcon={<ArrowBackIcon />}
+            className="footer-nav-btn"
+          >
+            Previous
+          </Button>
+          <Button
+            variant="contained"
+            onClick={currentPageIndex === pages.length - 1 ? handleFinish : () => handlePageChange(1)}
+            endIcon={currentPageIndex === pages.length - 1 ? undefined : <ArrowForwardIcon />}
+            className="footer-nav-btn primary"
+          >
+            {currentPageIndex === pages.length - 1 ? 'Finish Lesson' : 'Next'}
+          </Button>
+        </Container>
+      </footer>
 
-      {errorMessage && (
-        <Typography variant="body2" color="error.main" sx={{ mt: 2 }}>{errorMessage}</Typography>
-      )}
-
-      <Stack direction={isMobileViewport ? 'column' : 'row'} spacing={2} sx={{ mt: 4, justifyContent: 'space-between' }}>
-        <Button
-          variant="outlined"
-          disabled={currentPageIndex === 0}
-          onClick={() => handlePageChange(-1)}
-          startIcon={<ArrowBackIcon />}
-          sx={{ textTransform: 'none' }}
-        >
-          Previous
-        </Button>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {currentPageIndex < pages.length - 1 ? (
-            <Button
-              variant="contained"
-              onClick={() => handlePageChange(1)}
-              endIcon={<ArrowForwardIcon />}
-              sx={{ textTransform: 'none' }}
-            >
-              Next Page
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              onClick={handleFinish}
-              sx={{ textTransform: 'none' }}
-            >
-              Finish Lesson
-            </Button>
-          )}
-        </Box>
-      </Stack>
-
+      <CppPlaygroundDialog
+        open={isCompilerOpen}
+        onClose={() => setIsCompilerOpen(false)}
+        initialCode={compilerInitialCode}
+      />
       <ChallengePlaygroundDialog
         open={isChallengeOpen}
         onClose={() => setIsChallengeOpen(false)}
@@ -1281,7 +1390,7 @@ const LearningContentPage = () => {
           setAnswers(prev => ({ ...prev, [pageKey]: true }));
         }}
       />
-    </Container>
+    </Box>
   );
 };
 
