@@ -418,9 +418,12 @@ const InlineMcqWidget = ({
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex ?? null);
   const [answered, setAnswered] = useState(initiallyAnswered);
 
+  // Only update from props when initiallyAnswered or initialSelectedIndex actually change
   useEffect(() => {
-    setAnswered(initiallyAnswered);
     setSelectedIndex(initialSelectedIndex ?? null);
+    if (initiallyAnswered) {
+      setAnswered(true);
+    }
   }, [initiallyAnswered, initialSelectedIndex]);
 
   const handleSelect = (idx) => {
@@ -439,7 +442,7 @@ const InlineMcqWidget = ({
           Choose the Right Answer
         </Typography>
       </Box>
-      <Typography variant="body1" sx={{ mb: 2, color: 'text.primary', lineHeight: 1.6 }}>
+      <Typography variant="h6" sx={{ mb: 2.5, color: 'text.primary', lineHeight: 1.6, fontSize: '1.25rem', fontWeight: 600 }}>
         {parseFormattedText(question)}
       </Typography>
 
@@ -469,18 +472,20 @@ const InlineMcqWidget = ({
 
           let bgcolor = 'transparent';
           let border = '1px solid rgba(255,255,255,0.08)';
-          let color = 'text.primary';
+          let hoverBg = 'rgba(255,255,255,0.04)';
 
           if (answered) {
             if (isSelected) {
-              bgcolor = isCorrect ? 'rgba(76, 175, 80, 0.12)' : 'rgba(239, 83, 80, 0.12)';
-              border = isCorrect ? '1.5px solid #4CAF50' : '1.5px solid #ef5350';
+              bgcolor = isCorrect ? 'rgba(76, 175, 80, 0.2)' : 'rgba(239, 83, 80, 0.2)';
+              border = isCorrect ? '2px solid #4CAF50' : '2px solid #ef5350';
+              hoverBg = isCorrect ? 'rgba(76, 175, 80, 0.2)' : 'rgba(239, 83, 80, 0.2)';
             } else if (isCorrectAnswer) {
-              bgcolor = 'rgba(76, 175, 80, 0.06)';
-              border = '1.5px dashed rgba(76, 175, 80, 0.5)';
+              bgcolor = 'rgba(76, 175, 80, 0.1)';
+              border = '2px dashed rgba(76, 175, 80, 0.6)';
+              hoverBg = 'rgba(76, 175, 80, 0.1)';
             }
           } else if (isSelected) {
-            border = '1.5px solid var(--mui-palette-primary-main)';
+            border = '2px solid var(--mui-palette-primary-main)';
           }
 
           return (
@@ -489,6 +494,7 @@ const InlineMcqWidget = ({
               variant="outlined"
               onClick={() => handleSelect(i)}
               disabled={answered}
+              disableRipple={answered}
               sx={{
                 justifyContent: 'flex-start',
                 textAlign: 'left',
@@ -496,10 +502,19 @@ const InlineMcqWidget = ({
                 backgroundColor: bgcolor,
                 border,
                 borderRadius: 2,
-                color,
                 textTransform: 'none',
                 fontWeight: isSelected ? 700 : 400,
-                width: '100%'
+                width: '100%',
+                '&:hover': {
+                  backgroundColor: hoverBg,
+                  border,
+                },
+                '&.Mui-disabled': {
+                  backgroundColor: bgcolor,
+                  border,
+                  color: 'text.primary',
+                  opacity: 1,
+                },
               }}
             >
               <Box sx={{ flexGrow: 1 }}>{parseFormattedText(answerText)}</Box>
@@ -547,8 +562,28 @@ const InlineCodeExerciseWidget = ({
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [isChecking, setIsChecking] = useState(false);
 
+  // Only update from props when initiallyAnswered or initialInputValues actually change
   useEffect(() => {
-    setAnswered(initiallyAnswered);
+    if (initiallyAnswered) {
+      setAnswered(true);
+      // Recompute statuses from saved values
+      const codeLines = codeTemplate?.lines || [];
+      const newStatuses = {};
+      let blankIdx = 0;
+      codeLines.forEach((line) => {
+        if (line.type === 'input') {
+          const actual = String((initialInputValues && initialInputValues[blankIdx]) || '').trim();
+          const expected = String(line.expectedAnswer || '').trim();
+          const normActual = actual.replace(/\s+/g, '').replace(/;+$/, '').toLowerCase();
+          const normExpected = expected.replace(/\s+/g, '').replace(/;+$/, '').toLowerCase();
+          newStatuses[blankIdx] = normActual === normExpected ? 'correct' : 'incorrect';
+          blankIdx += 1;
+        }
+      });
+      setStatuses(newStatuses);
+      const allCorrect = Object.values(newStatuses).every(s => s === 'correct');
+      setFeedbackMessage(allCorrect ? 'Correct! Well done.' : 'Incorrect. Review your answers and try again.');
+    }
     if (initialInputValues) {
       setInputValues(initialInputValues);
     }
@@ -656,6 +691,7 @@ const InlineCodeExerciseWidget = ({
                           value={value}
                           onChange={(event) => handleInputChange(currentIndex, event.target.value)}
                           placeholder="// type code here..."
+                          disabled={answered}
                           style={{
                             width: '100%',
                             minHeight: '90px',
@@ -679,6 +715,7 @@ const InlineCodeExerciseWidget = ({
                         type="text"
                         value={value}
                         onChange={(event) => handleInputChange(currentIndex, event.target.value)}
+                        disabled={answered}
                         style={{
                           width: `${Math.min(Math.max(width, 4), 32) * 10 + 16}px`,
                           background: 'rgba(255,255,255,0.05)',
@@ -927,8 +964,8 @@ const LearningContentPage = () => {
         setLesson(foundLesson || null);
         setPages(foundLesson?.pages || []);
         setCurrentPageIndex(0);
-        setAnswers({});
-        setFillCodeValues({});
+        // Do NOT clear answers/fillCodeValues here — preserve them so navigating back
+        // within the same lesson shows previous answers.
       } catch (err) {
         console.error('Failed to load lesson content:', err);
         setLesson(null);
@@ -1197,14 +1234,26 @@ const LearningContentPage = () => {
             answers={block.answers || []}
             correctAnswerIndex={block.correctAnswer}
             codeSnippet={block.codeSnippet}
-            initiallyAnswered={false}
+            initiallyAnswered={typeof answers[key] === 'number'}
             initialSelectedIndex={typeof answers[key] === 'number' ? answers[key] : null}
             onAnswered={(selectedIndex) => setMultipleChoiceAnswer(page, blockIndex, selectedIndex)}
             isDarkMode={theme.palette.mode === 'dark'}
           />
         );
       case 'fill_code':
-      case 'write_line':
+      case 'write_line': {
+        const codeLines = getCodeLines(block);
+        const inputCount = codeLines.filter(line => line.type === 'input').length;
+        const savedValues = {};
+        let hasSavedValues = false;
+        for (let i = 0; i < inputCount; i++) {
+          const inputKey = `${key}-${i}`;
+          if (fillCodeValues[inputKey] !== undefined) {
+            savedValues[i] = fillCodeValues[inputKey];
+            hasSavedValues = true;
+          }
+        }
+        const wasAnswered = hasSavedValues && Object.keys(savedValues).length === inputCount;
         return (
           <InlineCodeExerciseWidget
             key={key}
@@ -1213,12 +1262,13 @@ const LearningContentPage = () => {
             fileName={block.fileName}
             codeTemplate={getCodeTemplate(block)}
             testCases={block.testCases || []}
-            initiallyAnswered={false}
-            initialInputValues={null}
+            initiallyAnswered={wasAnswered}
+            initialInputValues={wasAnswered ? savedValues : null}
             onAnswered={(passed) => setChallengeAnswer(page, blockIndex, passed)}
             isDarkMode={theme.palette.mode === 'dark'}
           />
         );
+      }
       case 'code_challenge':
         return (
           <Paper key={key} variant="outlined" sx={{ p: 3, mb: 2 }}>
