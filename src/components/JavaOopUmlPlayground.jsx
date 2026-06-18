@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import html2canvas from 'html2canvas';
 import { simulateCodeExecution, executeCodeAsync } from './CppPlaygroundDialog';
@@ -33,6 +33,7 @@ import {
   Remove as RemoveIcon,
   Visibility as PreviewIcon
 } from '@mui/icons-material';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 
 // Preloaded OOP Examples
 const EXAMPLES = [
@@ -326,6 +327,9 @@ const javaToUmlClasses = (code) => {
   while ((match = classDeclRegex.exec(cleanCode)) !== null) {
     const isAbstract = !!match[2];
     const className = match[3];
+    
+    if (className === 'Main') continue;
+
     const extendsClass = match[4] || null;
     
     const searchStart = match.index + match[0].length;
@@ -491,31 +495,63 @@ const analyzeRelationships = (classes) => {
   return relations;
 };
 
-export const JavaOopUmlPlayground = ({ open, onClose, csvExamples = [] }) => {
+export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
 
-  // Merge hardcoded OOP examples with CSV-derived examples from info.csv
-  const ALL_EXAMPLES = useMemo(() => {
-    const csvMapped = csvExamples.map(ex => ({
-      name: ex.name,
-      code: ex.code,
-      mainCode: ex.mainCode || `public class Runner {
-    public static void main(String[] args) {
-        // Add your test code here
-    }
-}`,
-    }));
-    return [...EXAMPLES, ...csvMapped];
-  }, [csvExamples]);
+  const [code, setCode] = useState(initialCode || EXAMPLES[0].code);
+  const [umlClasses, setUmlClasses] = useState(javaToUmlClasses(initialCode || EXAMPLES[0].code));
+  const [activeExampleIndex, setActiveExampleIndex] = useState(initialCode ? -1 : 0);
 
-  const [code, setCode] = useState(ALL_EXAMPLES[0].code);
-  const [umlClasses, setUmlClasses] = useState(javaToUmlClasses(ALL_EXAMPLES[0].code));
-  const [activeExampleIndex, setActiveExampleIndex] = useState(0);
+  // Load initialCode when the dialog opens with new code
+  useEffect(() => {
+    if (open && initialCode) {
+      let mainClassStr = "";
+      let remainingCode = initialCode;
+
+      const classMainRegex = /(?:public\s+)?class\s+Main\b[^{]*\{/;
+      const match = classMainRegex.exec(initialCode);
+
+      if (match) {
+        const startIndex = match.index;
+        const openBraceIdx = initialCode.indexOf('{', startIndex);
+        
+        if (openBraceIdx !== -1) {
+          let depth = 1;
+          let closeBraceIdx = -1;
+          for (let i = openBraceIdx + 1; i < initialCode.length; i++) {
+            if (initialCode[i] === '{') depth++;
+            else if (initialCode[i] === '}') {
+              depth--;
+              if (depth === 0) {
+                closeBraceIdx = i;
+                break;
+              }
+            }
+          }
+          if (closeBraceIdx !== -1) {
+            mainClassStr = initialCode.substring(startIndex, closeBraceIdx + 1);
+            remainingCode = initialCode.substring(0, startIndex) + initialCode.substring(closeBraceIdx + 1);
+          }
+        }
+      }
+
+      if (!mainClassStr) {
+        mainClassStr = "public class Main {\npublic static void main(String[] args){\n}\n}";
+      }
+
+      const finalCode = remainingCode.trim();
+      setCode(finalCode);
+      setUmlClasses(javaToUmlClasses(finalCode));
+      setActiveExampleIndex(-1);
+      setMainCode(mainClassStr);
+    }
+  }, [open, initialCode]);
 
   const [activeTab, setActiveTab] = useState('uml'); // 'uml' | 'runner'
+  const [activeCodeTab, setActiveCodeTab] = useState('classes'); // 'classes' | 'runner'
   const [inputStr, setInputStr] = useState('');
-  const [mainCode, setMainCode] = useState(ALL_EXAMPLES[0].mainCode);
+  const [mainCode, setMainCode] = useState(EXAMPLES[0].mainCode);
   const [terminalOutput, setTerminalOutput] = useState('Terminal ready. Click "RUN JAVA CODE" to execute.');
   const [isRunning, setIsRunning] = useState(false);
 
@@ -1122,7 +1158,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, csvExamples = [] }) => {
 
   const loadExample = (idx) => {
     setActiveExampleIndex(idx);
-    const ex = ALL_EXAMPLES[idx];
+    const ex = EXAMPLES[idx];
     setClassPositions({}); // Clear positions so examples position correctly
     setCode(ex.code);
     setUmlClasses(javaToUmlClasses(ex.code));
@@ -1472,54 +1508,114 @@ export const JavaOopUmlPlayground = ({ open, onClose, csvExamples = [] }) => {
         )}
 
         <Box id="split-container" style={{ display: 'flex', flexDirection: 'row', height: '580px', width: '100%', alignItems: 'stretch', position: 'relative' }}>
-          {/* Left Pane: Code Editor */}
-          <Box style={{ width: `${splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px', height: '100%' }}>
-            {activeTab === 'runner' ? (
-              <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {/* Top: Class Definitions */}
-                <Box>
-                  <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
-                    Class Definitions (OOP Structures)
-                  </Typography>
-                  <Box style={{
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
-                    height: '220px',
-                    width: '100%'
-                  }}>
+          {/* Left Pane: Code Editor with VS Code-style tabs */}
+          <Box style={{ width: `${splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '200px', height: '100%' }}>
+            <Box style={{
+              borderRadius: '16px',
+              overflow: 'hidden',
+              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+              backgroundColor: isDarkMode ? '#1e1e1e' : '#fffffe',
+              boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              width: '100%'
+            }}>
+              {/* VS Code-style Tab Bar */}
+              <Box style={{
+                background: isDarkMode ? '#252526' : '#f3f3f3',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderBottom: isDarkMode ? '1px solid #2d2d2d' : '1px solid #e2e2e2',
+                minHeight: '40px'
+              }}>
+                <Box style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', flex: 1 }}>
+                  {/* Classes.java Tab */}
+                  <Box
+                    onClick={() => setActiveCodeTab('classes')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      cursor: 'pointer',
+                      borderBottom: activeCodeTab === 'classes' ? `2px solid ${theme.palette.primary.main}` : '2px solid transparent',
+                      backgroundColor: activeCodeTab === 'classes' 
+                        ? (isDarkMode ? '#1e1e1e' : '#fffffe') 
+                        : 'transparent',
+                      transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <CodeIcon style={{ color: 'var(--primary-main)', fontSize: '0.9rem' }} />
+                    <Typography variant="caption" style={{ 
+                      fontWeight: activeCodeTab === 'classes' ? 800 : 600, 
+                      color: activeCodeTab === 'classes' ? (isDarkMode ? '#fff' : '#000') : 'var(--text-secondary)',
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem'
+                    }}>
+                      Classes.java
+                    </Typography>
+                  </Box>
+                  {/* Runner.java Tab */}
+                  <Box
+                    onClick={() => setActiveCodeTab('runner')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      cursor: 'pointer',
+                      borderBottom: activeCodeTab === 'runner' ? `2px solid ${theme.palette.primary.main}` : '2px solid transparent',
+                      backgroundColor: activeCodeTab === 'runner' 
+                        ? (isDarkMode ? '#1e1e1e' : '#fffffe') 
+                        : 'transparent',
+                      transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <PlayArrowIcon style={{ color: '#3DDC97', fontSize: '0.9rem' }} />
+                    <Typography variant="caption" style={{ 
+                      fontWeight: activeCodeTab === 'runner' ? 800 : 600, 
+                      color: activeCodeTab === 'runner' ? (isDarkMode ? '#fff' : '#000') : 'var(--text-secondary)',
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem'
+                    }}>
+                      Runner.java
+                    </Typography>
+                  </Box>
+                </Box>
+                <Box style={{ display: 'flex', gap: '6px', paddingRight: '16px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ff5f56' }}></span>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffbd2e' }}></span>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#27c93f' }}></span>
+                </Box>
+              </Box>
+              {/* Editor Content */}
+              <Box style={{ flexGrow: 1, position: 'relative', width: '100%', height: '100%' }}>
+                {isEditorReady ? (
+                  activeCodeTab === 'classes' ? (
                     <Editor
-                      key="runner-classes-editor"
+                      key="uml-editor"
                       height="100%"
                       language="java"
                       defaultValue={code}
-                      onMount={(editor) => { execEditorRef.current = editor; }}
+                      onMount={(editor) => { umlEditorRef.current = editor; execEditorRef.current = editor; }}
                       onChange={(val) => handleCodeChange(val || '')}
                       theme={isDarkMode ? 'vs-dark' : 'light'}
                       options={{
-                        fontSize: 12,
+                        fontSize: 13,
                         minimap: { enabled: false },
                         automaticLayout: true,
                         scrollBeyondLastLine: false,
-                        padding: { top: 8, bottom: 8 },
+                        padding: { top: 12, bottom: 12 },
                         lineNumbersMinChars: 3
                       }}
                     />
-                  </Box>
-                </Box>
-
-                {/* Bottom: Main test runner function */}
-                <Box>
-                  <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
-                    Main Executable (Test Client)
-                  </Typography>
-                  <Box style={{
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    border: '1.5px solid var(--primary-main)',
-                    boxShadow: '0 0 15px rgba(61, 92, 255, 0.15)',
-                    height: '260px'
-                  }}>
+                  ) : (
                     <Editor
                       key="runner-main-editor"
                       height="100%"
@@ -1540,81 +1636,20 @@ export const JavaOopUmlPlayground = ({ open, onClose, csvExamples = [] }) => {
                         minimap: { enabled: false },
                         automaticLayout: true,
                         scrollBeyondLastLine: false,
-                        padding: { top: 10, bottom: 10 },
+                        padding: { top: 12, bottom: 12 },
                         lineNumbersMinChars: 3
                       }}
                     />
+                  )
+                ) : (
+                  <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
+                    <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                      Loading Editor...
+                    </Typography>
                   </Box>
-                </Box>
+                )}
               </Box>
-            ) : (
-              // Tab 1: Full height editor
-              <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', height: '100%' }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Class Source Code (Java)
-                </Typography>
-                <Box style={{
-                  borderRadius: '16px',
-                  overflow: 'hidden',
-                  border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
-                  backgroundColor: isDarkMode ? '#1e1e1e' : '#fffffe',
-                  boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  height: '100%',
-                  width: '100%'
-                }}>
-                  {/* Editor mockup header bar */}
-                  <Box style={{
-                    background: isDarkMode ? '#252526' : '#f3f3f3',
-                    padding: '8px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderBottom: isDarkMode ? '1px solid #2d2d2d' : '1px solid #e2e2e2'
-                  }}>
-                    <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CodeIcon style={{ color: 'var(--primary-main)', fontSize: '1.1rem' }} />
-                      <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'none', letterSpacing: '0.02em', fontFamily: 'monospace' }}>
-                        BankAccount.java
-                      </Typography>
-                    </Box>
-                    <Box style={{ display: 'flex', gap: '6px' }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ff5f56' }}></span>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffbd2e' }}></span>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#27c93f' }}></span>
-                    </Box>
-                  </Box>
-                  <Box style={{ flexGrow: 1, position: 'relative', width: '100%', height: '100%' }}>
-                    {isEditorReady ? (
-                      <Editor
-                        key="uml-editor"
-                        height="100%"
-                        language="java"
-                        defaultValue={code}
-                        onMount={(editor) => { umlEditorRef.current = editor; }}
-                        onChange={(val) => handleCodeChange(val || '')}
-                        theme={isDarkMode ? 'vs-dark' : 'light'}
-                        options={{
-                          fontSize: 13,
-                          minimap: { enabled: false },
-                          automaticLayout: true,
-                          scrollBeyondLastLine: false,
-                          padding: { top: 12, bottom: 12 },
-                          lineNumbersMinChars: 3
-                        }}
-                      />
-                    ) : (
-                      <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
-                        <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
-                          Loading Editor...
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-                </Box>
-              </Box>
-            )}
+            </Box>
           </Box>
 
           {/* Draggable Divider */}

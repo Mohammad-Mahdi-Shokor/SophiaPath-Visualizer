@@ -1,92 +1,82 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import Editor from '@monaco-editor/react';
-import { CppPlaygroundDialog } from '../components/CppPlaygroundDialog';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { UmlDiagram } from '../components/course/UmlDiagram';
 import {
   Box,
-  Button,
   Container,
   Typography,
-  CircularProgress,
-  LinearProgress,
+  Button,
   Paper,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  TextField,
-  Stack,
+  LinearProgress,
+  IconButton,
   useTheme,
-  useMediaQuery,
   Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton,
-  Grid,
-  Modal,
-  Fade,
-  Backdrop
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
-  ArrowForward as ArrowForwardIcon,
-  CheckCircle as SuccessIcon,
-  Cancel as CancelIcon,
-  Code as CodeIcon,
-  Terminal as TerminalIcon,
   Close as CloseIcon,
   MenuBook as BookIcon,
   ChevronLeft as LeftIcon,
   ChevronRight as RightIcon,
-  CheckCircle as CheckCircleIcon,
-  EmojiEvents as TrophyIcon,
+  CheckCircle as SuccessIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
   Info as InfoIcon,
+  Code as CodeIcon,
   PlayArrow as PlayArrowIcon,
-  HelpOutline as HelpOutlineIcon
+  HelpOutline as HelpOutlineIcon,
+  Cancel as CancelIcon,
+  EmojiEvents as TrophyIcon,
+  Terminal as TerminalIcon,
 } from '@mui/icons-material';
-import { loadCourseFile, normalizeCourse, findCourseByIdOrSlug } from '../utils/courseData.js';
+import { motion, AnimatePresence } from 'framer-motion';
+import { getLessonById } from '../data/courses';
+import { CppPlaygroundDialog } from '../components/CppPlaygroundDialog';
+import { JavaOopUmlPlayground } from '../components/JavaOopUmlPlayground';
+import { ChallengePlaygroundDialog } from '../components/ChallengePlaygroundDialog';
 import './LearningContentPage.css';
+
+const STORAGE_KEY = 'sophia_learning_progress';
+
+function loadProgress() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveProgress(progress) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+}
 
 const parseFormattedText = (text, allowNewlines = false) => {
   if (!text) return '';
   if (typeof text !== 'string') return text;
-
   const parts = text.split(/(<code>[\s\S]*?<\/code>|<b>[\s\S]*?<\/b>|\\n)/g);
-
   return parts.map((part, index) => {
     if (!part) return null;
     if (part === '\\n') {
       return allowNewlines ? <br key={index} /> : null;
     }
-
     if (part.startsWith('<code>') && part.endsWith('</code>')) {
       const codeContent = part.substring(6, part.length - 7);
-      return (
-        <code key={index} className="slide-inline-code">
-          {codeContent}
-        </code>
-      );
+      return <code key={index} className="slide-inline-code">{codeContent}</code>;
     }
-
     if (part.startsWith('<b>') && part.endsWith('</b>')) {
       const bContent = part.substring(3, part.length - 4);
-      return (
-        <b key={index}>{bContent}</b>
-      );
+      return <b key={index}>{bContent}</b>;
     }
-
     return part;
   });
 };
 
 const highlightCppCode = (code, isDarkMode) => {
   if (!code) return '';
-
-  const pattern = /(\/\/.*$|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|#(?:include|define|pragma|ifdef|endif)\b|\b(?:using|namespace|int|return|void|double|float|char|string|bool|if|else|for|while|class|struct|public|private|true|false|const|auto|long|short|switch|case|break|continue|new|delete|std|cout|cin|endl|main)\b|[{}()[\];,<>+\-*/=])/gm;
   const keywords = new Set([
     'using', 'namespace', 'int', 'return', 'void', 'double', 'float', 'char', 'string',
     'bool', 'if', 'else', 'for', 'while', 'class', 'struct', 'public', 'private',
@@ -94,15 +84,12 @@ const highlightCppCode = (code, isDarkMode) => {
     'continue', 'new', 'delete'
   ]);
   const libraryWords = new Set(['cout', 'cin', 'std', 'endl', 'main']);
-
+  const pattern = /(\/\/.*$|\/\*.*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|#(?:include|define|pragma|ifdef|endif)\b|\b(?:using|namespace|int|return|void|double|float|char|string|bool|if|else|for|while|class|struct|public|private|true|false|const|auto|long|short|switch|case|break|continue|new|delete|std|cout|cin|endl|main)\b|[{}()[\];,<>+\-*/=])/g;
   const parts = code.split(pattern);
-
   return parts.map((part, idx) => {
     if (part === undefined || part === null) return null;
-
     let color = isDarkMode ? '#D4D4D4' : '#333333';
     let fontWeight = '400';
-
     if (part.startsWith('//') || part.startsWith('/*')) {
       color = isDarkMode ? '#6A9955' : '#008000';
     } else if (part.startsWith('"') || part.startsWith("'")) {
@@ -115,314 +102,26 @@ const highlightCppCode = (code, isDarkMode) => {
     } else if (/^\d+(?:\.\d+)?$/.test(part)) {
       color = isDarkMode ? '#B5CEA8' : '#098658';
     }
-
-    return (
-      <span key={idx} style={{ color, fontWeight }}>
-        {part}
-      </span>
-    );
+    return <span key={idx} style={{ color, fontWeight }}>{part}</span>;
   });
 };
 
-const translateCppToJs = (cppCode, inputStr) => {
-  let code = cppCode
-    .replace(/\/\/.*$/gm, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "");
+const _blockKey = (pageIdx, blockIdx) => `${pageIdx}_${blockIdx}`;
 
-  const mainBodyMatch = /int\s+main\s*\(\s*\)\s*\{([\s\S]*)\}/.exec(code);
-  if (!mainBodyMatch) {
-    throw new Error('Missing int main() structure.');
-  }
-  let body = mainBodyMatch[1].trim();
-  body = body.replace(/\breturn\s+0\s*;/g, '');
-
-  let js = `
-    const stdout = [];
-    const inputTokens = ${JSON.stringify(inputStr.trim().split(/\s+/).filter(t => t.length > 0))};
-    let inputPtr = 0;
-
-    const nextInputToken = () => {
-      if (inputPtr >= inputTokens.length) return "";
-      return inputTokens[inputPtr++];
-    };
-
-    const readInput = () => {
-      const token = nextInputToken();
-      if (!token) return "";
-      if (/^-?\\d+(\\.\\d+)?$/.test(token)) {
-        return parseFloat(token);
-      }
-      return token;
-    };
-  `;
-
-  body = body.replace(/std::cout/g, 'cout').replace(/std::cin/g, 'cin').replace(/std::endl/g, 'endl');
-
-  const types = ['int', 'double', 'float', 'string', 'bool', 'char', 'auto'];
-  types.forEach(type => {
-    const regex = new RegExp(`\\b${type}\\b`, 'g');
-    body = body.replace(regex, 'let');
-  });
-
-  const cinRegex = /cin\s*(>>\s*[a-zA-Z_][a-zA-Z0-9_]*\s*)+;/g;
-  body = body.replace(cinRegex, (match) => {
-    const vars = match.split('>>').slice(1).map(v => v.replace(/;$/, '').trim());
-    return vars.map(v => `${v} = readInput();`).join(' ');
-  });
-
-  const coutRegex = /cout\s*(<<\s*[^;]+)+;/g;
-  body = body.replace(coutRegex, (match) => {
-    const parts = match.split('<<').slice(1).map(p => p.replace(/;$/, '').trim());
-    const pushes = parts.map(part => {
-      if (part === 'endl' || part === '"\\n"' || part === "'\\n'") {
-        return `stdout.push("\\n");`;
-      }
-      return `stdout.push(${part});`;
-    });
-    return pushes.join(' ');
-  });
-
-  js += '\n' + body;
-  js += '\nreturn stdout.join("");';
-  return js;
-};
-
-const translateJavaToJs = (javaCode, inputStr) => {
-  let code = javaCode
-    .replace(/\/\/.*$/gm, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "");
-
-  code = code.replace(/import\s+[\w.]+;/g, "");
-  code = code.replace(/\bextends\s+Exception\b/g, 'extends Error');
-
-  code = code.replace(/\b(?:public\s+|abstract\s+)*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+[\w\s,]+)?/g, (match, className, parentClass) => {
-    let res = `class ${className}`;
-    if (parentClass) {
-      res += ` extends ${parentClass}`;
-    }
-    return res;
-  });
-
-  code = code.replace(/\bimplements\s+[\w\s,]+/g, "");
-
-  const classNames = [];
-  let match;
-  const classRegex = /class\s+(\w+)/g;
-  while ((match = classRegex.exec(code)) !== null) {
-    classNames.push(match[1]);
-  }
-
-  classNames.forEach(className => {
-    const constrRegex = new RegExp(`\\b(?:public|private|protected|internal)?\\s*${className}\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
-    code = code.replace(constrRegex, 'constructor($1) {');
-  });
-
-  code = code.replace(/\b(public|private|protected|final|abstract|synchronized|transient|volatile)\b/g, "");
-
-  const types = ['int', 'double', 'float', 'boolean', 'char', 'String', 'auto'];
-  types.forEach(type => {
-    const varDeclRegex = new RegExp(`\\b${type}(?:\\[\\])?\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b`, 'g');
-    code = code.replace(varDeclRegex, 'let $1');
-  });
-
-  types.concat(['void']).forEach(type => {
-    const methodRegex = new RegExp(`\\b${type}(?:\\[\\])?\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
-    code = code.replace(methodRegex, '$1($2) {');
-  });
-
-  code = code.replace(/\(([^)]*)\)/g, (match, paramStr) => {
-    if (!paramStr.trim()) return '()';
-    if (paramStr.includes('args') && (paramStr.includes('String') || paramStr.includes('[]'))) {
-      return '(args)';
-    }
-    const params = paramStr.split(',').map(p => {
-      const parts = p.trim().split(/\s+/);
-      return parts[parts.length - 1];
-    });
-    return `(${params.join(', ')})`;
-  });
-
-  code = code.replace(/System\.out\.println\s*\(([^;]*)\)\s*;/g, 'stdout.push($1); stdout.push("\\n");');
-  code = code.replace(/System\.out\.print\s*\(([^;]*)\)\s*;/g, 'stdout.push($1);');
-  code = code.replace(/System\.out\.printf\s*\(([^;]*)\)\s*;/g, 'stdout.push(sprintf($1));');
-
-  code = code.replace(/\be\.getMessage\(\)/g, 'e.message');
-  code = code.replace(/new\s+Scanner\s*\([^)]*\)/g, 'null');
-  code = code.replace(/\b[a-zA-Z0-9_]+\.(?:nextInt|nextDouble|next|nextLine)\(\)/g, 'readInput()');
-
-  const mainRegex = /main\s*\(([^)]*)\)\s*\{([\s\S]*)\}/;
-  const mainMatch = mainRegex.exec(code);
-  let mainBody = '';
-  if (mainMatch) {
-    mainBody = mainMatch[2].trim();
-    code = code.replace(mainRegex, '');
-  }
-
-  let js = `
-    const stdout = [];
-    const inputTokens = ${JSON.stringify(inputStr.trim().split(/\s+/).filter(t => t.length > 0))};
-    let inputPtr = 0;
-
-    const nextInputToken = () => {
-      if (inputPtr >= inputTokens.length) return "";
-      return inputTokens[inputPtr++];
-    };
-
-    const readInput = () => {
-      const token = nextInputToken();
-      if (!token) return "";
-      if (/^-?\\d+(\\.\\d+)?$/.test(token)) {
-        return parseFloat(token);
-      }
-      return token;
-    };
-
-    const sprintf = (format, ...args) => {
-      let str = format;
-      args.forEach(arg => {
-        if (str.includes('%.2f')) {
-          str = str.replace('%.2f', Number(arg).toFixed(2));
-        } else if (str.includes('%.1f')) {
-          str = str.replace('%.1f', Number(arg).toFixed(1));
-        } else if (str.includes('%s')) {
-          str = str.replace('%s', String(arg));
-        } else if (str.includes('%d')) {
-          str = str.replace('%d', Math.round(Number(arg)));
-        } else {
-          str = str.replace(/%[a-zA-Z]/, String(arg));
-        }
-      });
-      return str;
-    };
-  `;
-
-  js += '\n' + code;
-  js += `\n(function() {\n${mainBody}\n})();`;
-  js += '\nreturn stdout.join("");';
-  return js;
-};
-
-const simulateCodeExecution = (code, inputStr = '', language = 'cpp') => {
-  try {
-    const isJava = language.toLowerCase() === 'java' || code.includes('class ') || code.includes('System.out');
-    const jsCode = isJava ? translateJavaToJs(code, inputStr) : translateCppToJs(code, inputStr);
-    const result = new Function(jsCode)();
-    return {
-      output: String(result),
-      isError: false
-    };
-  } catch (err) {
-    return {
-      output: `Compilation / Execution Error: ${err.message}`,
-      isError: true
-    };
-  }
-};
-
-const groupIntoVisualLines = (flatLines) => {
-  if (!flatLines) return [];
-  const rows = [];
-  let index = 0;
-
-  while (index < flatLines.length) {
-    const current = flatLines[index];
-    if (current.type === 'code' && index + 1 < flatLines.length && flatLines[index + 1].type === 'input') {
-      const row = [current];
-      index++;
-      while (index < flatLines.length && flatLines[index].type === 'input') {
-        row.push(flatLines[index]);
-        index++;
-      }
-      if (index < flatLines.length) {
-        const possibleContinuation = flatLines[index];
-        if (possibleContinuation.type === 'code' && possibleContinuation.content.startsWith(' ') && possibleContinuation.content.trim().length > 0) {
-          row.push(possibleContinuation);
-          index++;
-        }
-      }
-      rows.push(row);
-      continue;
-    }
-    rows.push([current]);
-    index++;
-  }
-
-  return rows;
-};
-
-const getCompletedCode = (question, values = null) => {
-  const visualLines = groupIntoVisualLines(question.codeTemplateLines || question.codeTemplate?.lines);
-  let inputIdx = 0;
-
-  return visualLines.map(lineGroup => {
-    return lineGroup.map(part => {
-      if (part.type === 'input') {
-        if (values === null) {
-          return part.expectedAnswer || '';
-        }
-        const val = values[inputIdx] !== undefined ? values[inputIdx] : '';
-        inputIdx++;
-        return val;
-      }
-      return part.content || part.content === '' ? part.content : '';
-    }).join('');
-  }).join('\n');
-};
-
-const getCodeTemplate = (block) => {
-  const template = block?.codeTemplate || block?.raw?.codeTemplate || {};
-  return {
-    ...template,
-    language: template.language || block?.raw?.language || block?.language || 'code',
-    lines: template.lines || block?.raw?.lines || block?.lines || [],
-  };
-};
-const getCodeLines = (block) => getCodeTemplate(block).lines || [];
-
-const getIndentation = (visualLines, lineIdx) => {
-  for (let i = lineIdx - 1; i >= 0; i--) {
-    const prevLine = visualLines[i];
-    if (prevLine && prevLine.length > 0 && prevLine[0].type === 'code') {
-      const content = prevLine[0].content || '';
-      const match = content.match(/^(\s+)/);
-      if (match) {
-        return match[1];
-      }
-    }
-  }
-  for (let i = lineIdx + 1; i < visualLines.length; i++) {
-    const nextLine = visualLines[i];
-    if (nextLine && nextLine.length > 0 && nextLine[0].type === 'code') {
-      const content = nextLine[0].content || '';
-      const match = content.match(/^(\s+)/);
-      if (match) {
-        return match[1];
-      }
-    }
-  }
-  return '';
-};
-
-const _blockKey = (page, blockIndex) => `${page.pageId || page.orderIndex}-${blockIndex}`;
-
+// Inline MCQ Widget
 const InlineMcqWidget = ({
-  question,
-  answers,
-  correctAnswerIndex,
-  codeSnippet,
-  initiallyAnswered,
-  initialSelectedIndex,
-  onAnswered,
-  isDarkMode
+  question, answers, correctAnswerIndex, codeSnippet,
+  initiallyAnswered, initialSelectedIndex, onAnswered, isDarkMode
 }) => {
-  const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex ?? null);
+  const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex !== undefined ? initialSelectedIndex : null);
   const [answered, setAnswered] = useState(initiallyAnswered);
 
-  // Only update from props when initiallyAnswered or initialSelectedIndex actually change
   useEffect(() => {
-    setSelectedIndex(initialSelectedIndex ?? null);
-    if (initiallyAnswered) {
-      setAnswered(true);
+    setAnswered(initiallyAnswered);
+    if (initialSelectedIndex !== undefined) {
+      setSelectedIndex(initialSelectedIndex);
+    } else {
+      setSelectedIndex(null);
     }
   }, [initiallyAnswered, initialSelectedIndex]);
 
@@ -430,113 +129,83 @@ const InlineMcqWidget = ({
     if (answered) return;
     setSelectedIndex(idx);
     setAnswered(true);
-    onAnswered(idx, idx === correctAnswerIndex);
+    const isCorrect = idx === correctAnswerIndex;
+    onAnswered(idx, isCorrect);
   };
 
   const isCorrect = selectedIndex === correctAnswerIndex;
 
   return (
-    <Box className="inline-mcq-container">
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+    <Box className="inline-mcq-container glass-panel-strong" style={{ padding: '24px', margin: '20px 0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', background: 'rgba(255,255,255,0.02)' }}>
+      <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+        <HelpOutlineIcon style={{ color: 'var(--primary-main)' }} />
+        <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           Choose the Right Answer
         </Typography>
       </Box>
-      <Typography variant="h6" sx={{ mb: 2.5, color: 'text.primary', lineHeight: 1.6, fontSize: '1.25rem', fontWeight: 600 }}>
+      <Typography variant="body1" style={{ fontWeight: 650, marginBottom: '16px', color: 'var(--text-primary)', lineHeight: 1.5 }}>
         {parseFormattedText(question)}
       </Typography>
 
-      {codeSnippet && codeSnippet.lines?.length > 0 && (
-        <Paper className="slide-code-card" elevation={0} sx={{ mb: 2 }}>
-          <Box className="code-card-header">
-            <span>{(codeSnippet.language || 'code').toUpperCase()}</span>
-          </Box>
-          <Box className="code-card-body">
-            <pre className="code-pre">
+      {codeSnippet && codeSnippet.lines && codeSnippet.lines.length > 0 && (
+        <Paper className="slide-code-card" elevation={0} style={{ marginBottom: '18px', background: 'rgba(0,0,0,0.2)' }}>
+          <div className="code-card-header" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <span>{codeSnippet.language?.toUpperCase() || 'CODE'}</span>
+          </div>
+          <div className="code-card-body" style={{ padding: '12px' }}>
+            <pre className="code-pre" style={{ margin: 0 }}>
               {codeSnippet.lines.map((line, lIdx) => (
-                <div key={lIdx} className="code-line">
-                  <span className="code-line-number">{lIdx + 1}</span>
+                <div key={lIdx} className="code-line" style={{ display: 'flex' }}>
+                  <span className="code-line-number" style={{ width: '25px', opacity: 0.4 }}>{lIdx + 1}</span>
                   <span className="code-line-content">{highlightCppCode(line, isDarkMode)}</span>
                 </div>
               ))}
             </pre>
-          </Box>
+          </div>
         </Paper>
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {answers.map((ans, i) => {
           const answerText = typeof ans === 'object' ? ans.answer : ans;
           const isSelected = i === selectedIndex;
           const isCorrectAnswer = i === correctAnswerIndex;
-
-          let bgcolor = 'transparent';
-          let border = '1px solid rgba(255,255,255,0.08)';
-          let hoverBg = 'rgba(255,255,255,0.04)';
-
+          let btnBg = 'rgba(255,255,255,0.03)';
+          let btnBorder = '1px solid rgba(255,255,255,0.06)';
           if (answered) {
             if (isSelected) {
-              bgcolor = isCorrect ? 'rgba(76, 175, 80, 0.2)' : 'rgba(239, 83, 80, 0.2)';
-              border = isCorrect ? '2px solid #4CAF50' : '2px solid #ef5350';
-              hoverBg = isCorrect ? 'rgba(76, 175, 80, 0.2)' : 'rgba(239, 83, 80, 0.2)';
+              btnBg = isCorrect ? 'rgba(76, 175, 80, 0.12)' : 'rgba(239, 83, 80, 0.12)';
+              btnBorder = isCorrect ? '1.5px solid #4CAF50' : '1.5px solid #ef5350';
             } else if (isCorrectAnswer) {
-              bgcolor = 'rgba(76, 175, 80, 0.1)';
-              border = '2px dashed rgba(76, 175, 80, 0.6)';
-              hoverBg = 'rgba(76, 175, 80, 0.1)';
+              btnBg = 'rgba(76, 175, 80, 0.06)';
+              btnBorder = '1.5px dashed rgba(76, 175, 80, 0.5)';
             }
-          } else if (isSelected) {
-            border = '2px solid var(--mui-palette-primary-main)';
           }
-
           return (
-            <Button
-              key={i}
-              variant="outlined"
-              onClick={() => handleSelect(i)}
-              disabled={answered}
-              disableRipple={answered}
-              sx={{
-                justifyContent: 'flex-start',
-                textAlign: 'left',
-                p: 2,
-                backgroundColor: bgcolor,
-                border,
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: isSelected ? 700 : 400,
-                width: '100%',
-                '&:hover': {
-                  backgroundColor: hoverBg,
-                  border,
-                },
-                '&.Mui-disabled': {
-                  backgroundColor: bgcolor,
-                  border,
-                  color: 'text.primary',
-                  opacity: 1,
-                },
-              }}
-            >
-              <Box sx={{ flexGrow: 1 }}>{parseFormattedText(answerText)}</Box>
-              {answered && isSelected && (
-                isCorrect ? <SuccessIcon sx={{ color: '#4CAF50' }} /> : <CancelIcon sx={{ color: '#ef5350' }} />
-              )}
-              {answered && !isSelected && isCorrectAnswer && (
-                <SuccessIcon sx={{ color: '#4CAF50', opacity: 0.6 }} />
-              )}
+            <Button key={i} onClick={() => handleSelect(i)} disabled={answered}
+              style={{
+                justifyContent: 'flex-start', textAlign: 'left', padding: '14px 18px',
+                background: btnBg, border: btnBorder, borderRadius: '12px',
+                color: 'var(--text-primary)', textTransform: 'none',
+                width: '100%', fontWeight: isSelected ? 700 : 400
+              }}>
+              <span style={{ flexGrow: 1, fontSize: '0.92rem' }}>{parseFormattedText(answerText)}</span>
+              {answered && isSelected && (isCorrect ? <SuccessIcon style={{ color: '#4CAF50' }} /> : <CancelIcon style={{ color: '#ef5350' }} />)}
+              {answered && !isSelected && isCorrectAnswer && <SuccessIcon style={{ color: '#4CAF50', opacity: 0.6 }} />}
             </Button>
           );
         })}
       </Box>
 
       {answered && (
-        <Box sx={{ mt: 2, p: 2, borderRadius: 2, backgroundColor: isCorrect ? 'rgba(76, 175, 80, 0.08)' : 'rgba(239, 83, 80, 0.08)', border: `1px solid ${isCorrect ? 'rgba(76, 175, 80, 0.15)' : 'rgba(239, 83, 80, 0.15)'}`, display: 'flex', alignItems: 'center', gap: 1 }}>
-          {isCorrect ? (
-            <SuccessIcon sx={{ color: '#4CAF50', fontSize: 20 }} />
-          ) : (
-            <CancelIcon sx={{ color: '#ef5350', fontSize: 20 }} />
-          )}
-          <Typography variant="body2" sx={{ color: isCorrect ? '#4CAF50' : '#ef5350', fontWeight: 700 }}>
+        <Box style={{
+          marginTop: '18px', padding: '14px 16px', borderRadius: '12px',
+          backgroundColor: isCorrect ? 'rgba(76, 175, 80, 0.08)' : 'rgba(239, 83, 80, 0.08)',
+          border: `1px solid ${isCorrect ? 'rgba(76, 175, 80, 0.15)' : 'rgba(239, 83, 80, 0.15)'}`,
+          display: 'flex', alignItems: 'center', gap: '10px'
+        }}>
+          {isCorrect ? <SuccessIcon style={{ color: '#4CAF50', fontSize: '20px' }} /> : <ErrorIcon style={{ color: '#ef5350', fontSize: '20px' }} />}
+          <Typography variant="body2" style={{ color: isCorrect ? '#4CAF50' : '#ef5350', fontWeight: 700 }}>
             {isCorrect ? 'Correct! Well done.' : 'Incorrect. Review the correct option highlighted above.'}
           </Typography>
         </Box>
@@ -545,218 +214,159 @@ const InlineMcqWidget = ({
   );
 };
 
+// Inline Code Exercise Widget
 const InlineCodeExerciseWidget = ({
-  blockType,
-  instruction,
-  fileName,
-  codeTemplate,
-  testCases,
-  initiallyAnswered,
-  initialInputValues,
-  onAnswered,
-  isDarkMode
+  blockType, instruction, fileName, codeLines, language,
+  initiallyAnswered, initialInputValues, onAnswered, isDarkMode
 }) => {
   const [answered, setAnswered] = useState(initiallyAnswered);
   const [inputValues, setInputValues] = useState(initialInputValues || {});
   const [statuses, setStatuses] = useState({});
   const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [isChecking, setIsChecking] = useState(false);
+  const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false);
+  const [validationError, setValidationError] = useState('');
 
-  // Only update from props when initiallyAnswered or initialInputValues actually change
   useEffect(() => {
-    if (initiallyAnswered) {
-      setAnswered(true);
-      // Recompute statuses from saved values
-      const codeLines = codeTemplate?.lines || [];
-      const newStatuses = {};
-      let blankIdx = 0;
-      codeLines.forEach((line) => {
-        if (line.type === 'input') {
-          const actual = String((initialInputValues && initialInputValues[blankIdx]) || '').trim();
-          const expected = String(line.expectedAnswer || '').trim();
-          const normActual = actual.replace(/\s+/g, '').replace(/;+$/, '').toLowerCase();
-          const normExpected = expected.replace(/\s+/g, '').replace(/;+$/, '').toLowerCase();
-          newStatuses[blankIdx] = normActual === normExpected ? 'correct' : 'incorrect';
-          blankIdx += 1;
-        }
-      });
-      setStatuses(newStatuses);
-      const allCorrect = Object.values(newStatuses).every(s => s === 'correct');
-      setFeedbackMessage(allCorrect ? 'Correct! Well done.' : 'Incorrect. Review your answers and try again.');
-    }
-    if (initialInputValues) {
-      setInputValues(initialInputValues);
-    }
+    setAnswered(initiallyAnswered);
+    if (initialInputValues) setInputValues(initialInputValues);
   }, [initiallyAnswered, initialInputValues]);
 
-  const codeLines = codeTemplate?.lines || [];
-  const visualRows = groupIntoVisualLines(codeLines);
+  const visualRows = [];
+  let i = 0;
+  while (i < codeLines.length) {
+    const line = codeLines[i];
+    if (line.sameLine && visualRows.length > 0) {
+      visualRows[visualRows.length - 1].push({ line, idx: i });
+    } else {
+      visualRows.push([{ line, idx: i }]);
+    }
+    i++;
+  }
 
   const handleInputChange = (idx, value) => {
     if (answered) return;
+    setValidationError('');
     setInputValues(prev => ({ ...prev, [idx]: value }));
   };
 
   const handleCheck = () => {
-    if (isChecking) return;
-    const inputLines = codeLines.filter(line => line.type === 'input');
-    const hasEmptyField = inputLines.some((_, blankIdx) => {
-      const value = String(inputValues[blankIdx] || '').trim();
-      return value.length === 0;
+    const hasEmptyField = codeLines.some((line, idx) => {
+      if (line.type === 'input') {
+        const val = inputValues[idx];
+        return !val || val.trim() === '';
+      }
+      return false;
     });
-
     if (hasEmptyField) {
-      setFeedbackMessage('Please fill in all blanks before checking.');
+      setValidationError('Please fill in all blanks before checking.');
       return;
     }
 
-    setIsChecking(true);
-    setFeedbackMessage('');
-
-    const newStatuses = {};
     let allCorrect = true;
-    let blankIdx = 0;
-
-    codeLines.forEach((line) => {
+    const newStatuses = {};
+    codeLines.forEach((line, idx) => {
       if (line.type === 'input') {
-        const actual = String(inputValues[blankIdx] || '').trim();
-        const expected = String(line.expectedAnswer || '').trim();
-        const normActual = actual.replace(/\s+/g, '').replace(/;+$/, '').toLowerCase();
-        const normExpected = expected.replace(/\s+/g, '').replace(/;+$/, '').toLowerCase();
-        const correct = normActual === normExpected;
-        newStatuses[blankIdx] = correct ? 'correct' : 'incorrect';
-        if (!correct) allCorrect = false;
-        blankIdx += 1;
+        const expected = (line.expectedAnswer || '').trim().toLowerCase();
+        const actual = (inputValues[idx] || '').trim().toLowerCase();
+        const normExpected = expected.replace(/\s+/g, '').replace(/;+$/, '');
+        const normActual = actual.replace(/\s+/g, '').replace(/;+$/, '');
+        if (normActual === normExpected) {
+          newStatuses[idx] = 'correct';
+        } else {
+          newStatuses[idx] = 'incorrect';
+          allCorrect = false;
+        }
       }
     });
 
     setStatuses(newStatuses);
+    setLastAnswerCorrect(allCorrect);
     setAnswered(true);
     setFeedbackMessage(allCorrect ? 'Correct! Well done.' : 'Incorrect. Review your answers and try again.');
     onAnswered(allCorrect);
-    setIsChecking(false);
   };
 
   return (
-    <Box className="inline-code-exercise-container">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <CodeIcon sx={{ color: 'primary.main' }} />
-          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+    <Box className="inline-code-exercise-container glass-panel-strong" style={{ padding: '24px', margin: '20px 0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', background: 'rgba(255,255,255,0.02)' }}>
+      <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+        <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <CodeIcon style={{ color: 'var(--primary-main)' }} />
+          <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {blockType === 'write_line' ? 'Write the Line' : 'Fill the Code'}
           </Typography>
         </Box>
-        <Chip size="small" label={codeTemplate?.language?.toUpperCase() || 'CODE'} sx={{ bgcolor: 'rgba(28,176,246,0.1)', color: '#1CB0F6', fontWeight: 800 }} />
+        <Chip size="small" label={language.toUpperCase()} style={{ background: 'rgba(28,176,246,0.1)', color: '#1CB0F6', fontWeight: 800 }} />
       </Box>
 
       {instruction && (
-        <Typography variant="body1" sx={{ mb: 2, color: 'text.primary', lineHeight: 1.6 }}>
+        <Typography variant="body1" style={{ marginBottom: '16px', color: 'var(--text-primary)', lineHeight: 1.5 }}>
           {parseFormattedText(instruction)}
         </Typography>
       )}
 
       {fileName && (
-        <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary', fontFamily: 'Roboto Mono, monospace', fontWeight: 600 }}>
+        <Typography variant="caption" style={{ display: 'block', marginBottom: '10px', color: 'var(--text-secondary)', fontFamily: '"Roboto Mono", monospace', fontWeight: 600 }}>
           📄 {fileName}
         </Typography>
       )}
 
-      <Box sx={{ background: 'rgba(0,0,0,0.08)', borderRadius: 3, p: 2, mb: 2, overflowX: 'auto' }}>
-        <pre style={{ margin: 0 }}>
-          {(() => {
-            let blankIndex = 0;
-            return visualRows.map((row, rowIdx) => (
-              <div key={rowIdx} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', minHeight: '28px' }}>
-                {row.map((item, itemIdx) => {
-                  const line = item;
-                  if (line.type === 'input') {
-                    const currentIndex = blankIndex;
-                    const value = inputValues[currentIndex] || '';
-                    const status = statuses[currentIndex];
-                    const width = line.width || 12;
-                    blankIndex += 1;
-
-                    if (answered) {
-                      return (
-                        <span key={`input-${currentIndex}`} style={{ color: status === 'correct' ? '#4CAF50' : '#ef5350', fontWeight: 800, margin: '0 6px', borderBottom: `2px solid ${status === 'correct' ? '#4CAF50' : '#ef5350'}` }}>
-                          {value || line.expectedAnswer}
-                        </span>
-                      );
-                    }
-
-                    if (line.multiline) {
-                      return (
-                        <textarea
-                          key={`input-${currentIndex}`}
-                          value={value}
-                          onChange={(event) => handleInputChange(currentIndex, event.target.value)}
-                          placeholder="// type code here..."
-                          disabled={answered}
-                          style={{
-                            width: '100%',
-                            minHeight: '90px',
-                            background: 'rgba(255,255,255,0.05)',
-                            border: '1.5px solid rgba(255,255,255,0.12)',
-                            borderRadius: '10px',
-                            color: 'inherit',
-                            fontFamily: 'Roboto Mono, monospace',
-                            padding: '10px',
-                            margin: '6px 0',
-                            resize: 'vertical',
-                            fontSize: '0.86rem'
-                          }}
-                        />
-                      );
-                    }
-
+      <Box style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '18px', marginBottom: '18px', overflowX: 'auto' }}>
+        <pre style={{ margin: 0, fontFamily: '"Roboto Mono", monospace', fontSize: '0.85rem', color: 'var(--code-text-default)', lineHeight: 1.7 }}>
+          {visualRows.map((row, rowIdx) => (
+            <div key={rowIdx} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', minHeight: '28px' }}>
+              {row.map(({ line, idx }) => {
+                if (line.type === 'input') {
+                  const val = inputValues[idx] || '';
+                  const status = statuses[idx];
+                  const widthCh = line.width || 12;
+                  if (answered) {
+                    const isInputCorrect = status === 'correct' || lastAnswerCorrect;
                     return (
-                      <input
-                        key={`input-${currentIndex}`}
-                        type="text"
-                        value={value}
-                        onChange={(event) => handleInputChange(currentIndex, event.target.value)}
-                        disabled={answered}
-                        style={{
-                          width: `${Math.min(Math.max(width, 4), 32) * 10 + 16}px`,
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1.5px solid rgba(255,255,255,0.12)',
-                          borderRadius: '8px',
-                          color: 'inherit',
-                          fontFamily: 'Roboto Mono, monospace',
-                          padding: '4px 8px',
-                          margin: '0 6px',
-                          fontSize: '0.86rem'
-                        }}
+                      <span key={idx} style={{ color: isInputCorrect ? '#4CAF50' : '#ef5350', fontWeight: 800, margin: '0 6px', borderBottom: `2.5px solid ${isInputCorrect ? '#4CAF50' : '#ef5350'}` }}>
+                        {val || line.expectedAnswer}
+                      </span>
+                    );
+                  }
+                  if (line.multiline) {
+                    return (
+                      <textarea key={idx} value={val}
+                        onChange={(e) => handleInputChange(idx, e.target.value)}
+                        placeholder="// type code here..."
+                        style={{ width: '100%', minHeight: '90px', background: 'rgba(255,255,255,0.03)', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontFamily: '"Roboto Mono", monospace', padding: '10px', marginTop: '6px', marginBottom: '6px', resize: 'vertical', fontSize: '0.82rem' }}
                       />
                     );
                   }
-
                   return (
-                    <span key={`code-${rowIdx}-${itemIdx}`} style={{ whiteSpace: 'pre' }}>
-                      {highlightCppCode(line.content || '', isDarkMode)}
-                    </span>
+                    <input key={idx} type="text" value={val}
+                      onChange={(e) => handleInputChange(idx, e.target.value)}
+                      style={{ width: `${widthCh * 8 + 35}px`, background: 'rgba(255,255,255,0.04)', border: '1.5px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: '#fff', fontFamily: '"Roboto Mono", monospace', padding: '3px 8px', margin: '0 6px', fontSize: '0.82rem' }}
+                    />
                   );
-                })}
-              </div>
-            ));
-          })()}
+                }
+                return <span key={idx} style={{ whiteSpace: 'pre' }}>{highlightCppCode(line.content, isDarkMode)}</span>;
+              })}
+            </div>
+          ))}
         </pre>
       </Box>
 
       {!answered ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-start' }}>
-          <Button variant="contained" onClick={handleCheck} disabled={isChecking} sx={{ textTransform: 'none' }}>
-            {isChecking ? 'Checking...' : 'Check Answer'}
+        <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
+          <Button variant="contained" onClick={handleCheck}
+            style={{ background: 'var(--hero-gradient)', color: '#fff', borderRadius: '12px', textTransform: 'none', fontWeight: 800, padding: '10px 24px' }}>
+            Check Answer
           </Button>
-          {feedbackMessage && (
-            <Typography variant="body2" sx={{ color: 'error.main' }}>
-              {feedbackMessage}
-            </Typography>
-          )}
+          {validationError && <Typography variant="body2" style={{ color: '#ef5350', fontWeight: 600, marginTop: '4px' }}>{validationError}</Typography>}
         </Box>
       ) : (
-        <Box sx={{ p: 2, borderRadius: 2, backgroundColor: 'rgba(76,175,80,0.08)', border: '1px solid rgba(76,175,80,0.15)' }}>
-          <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 700 }}>
+        <Box style={{
+          padding: '14px 16px', borderRadius: '12px',
+          backgroundColor: lastAnswerCorrect ? 'rgba(76, 175, 80, 0.08)' : 'rgba(239, 83, 80, 0.08)',
+          border: `1px solid ${lastAnswerCorrect ? 'rgba(76, 175, 80, 0.15)' : 'rgba(239, 83, 80, 0.15)'}`,
+          display: 'flex', alignItems: 'center', gap: '10px'
+        }}>
+          {lastAnswerCorrect ? <SuccessIcon style={{ color: '#4CAF50', fontSize: '20px' }} /> : <ErrorIcon style={{ color: '#ef5350', fontSize: '20px' }} />}
+          <Typography variant="body2" style={{ color: lastAnswerCorrect ? '#4CAF50' : '#ef5350', fontWeight: 700, lineHeight: 1.4 }}>
             {feedbackMessage}
           </Typography>
         </Box>
@@ -765,375 +375,328 @@ const InlineCodeExerciseWidget = ({
   );
 };
 
-const ChallengePlaygroundDialog = ({ open, onClose, challenge, isDarkMode, onSolved }) => {
-  const editorTheme = isDarkMode ? 'vs-dark' : 'light';
-  const starterCode = (challenge?.starterCode?.lines || []).join('\n') || challenge?.starterCode?.codeSnippet?.lines?.join('\n') || '';
-  const [code, setCode] = useState(starterCode);
-  const [testCaseStatuses, setTestCaseStatuses] = useState([]);
-  const [consoleLines, setConsoleLines] = useState([]);
-  const [isCompiling, setIsCompiling] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setCode(starterCode);
-    setTestCaseStatuses((challenge?.testCases || []).map(() => ({ status: 'idle', actual: '' })));
-    setConsoleLines([]);
-    setIsCompiling(false);
-  }, [open, starterCode, challenge]);
-
-  const runTestCases = () => {
-    if (isCompiling || !challenge) return;
-    setIsCompiling(true);
-    const cases = challenge.testCases || [];
-    const lang = challenge.starterCode?.language || challenge.language || 'cpp';
-    const newStatuses = [];
-    const newConsole = [];
-
-    cases.forEach((tc, idx) => {
-      const res = simulateCodeExecution(code, tc.input || '', lang);
-      const actual = res.output.trim().replace(/\r/g, '');
-      const expected = String(tc.expectedOutput || '').trim().replace(/\r/g, '');
-      const pass = !res.isError && actual === expected;
-      newStatuses.push({ status: pass ? 'pass' : 'fail', actual, expected, error: res.isError });
-      newConsole.push(`Test #${idx + 1}: ${pass ? 'PASS' : 'FAIL'}`);
-      if (res.isError) {
-        newConsole.push(res.output);
-      } else {
-        newConsole.push(`Expected: ${expected}`);
-        newConsole.push(`Actual: ${actual}`);
-      }
-    });
-
-    setTestCaseStatuses(newStatuses);
-    setConsoleLines(newConsole);
-    setIsCompiling(false);
-  };
-
-  const handleSubmit = () => {
-    if (!challenge) return;
-    const cases = challenge.testCases || [];
-    const lang = challenge.starterCode?.language || challenge.language || 'cpp';
-    const newStatuses = [];
-    let allPassed = true;
-
-    cases.forEach((tc) => {
-      const res = simulateCodeExecution(code, tc.input || '', lang);
-      const actual = res.output.trim().replace(/\r/g, '');
-      const expected = String(tc.expectedOutput || '').trim().replace(/\r/g, '');
-      const pass = !res.isError && actual === expected;
-      newStatuses.push({ status: pass ? 'pass' : 'fail', actual, expected, error: res.isError });
-      if (!pass) allPassed = false;
-    });
-
-    setTestCaseStatuses(newStatuses);
-    if (allPassed) {
-      onSolved?.();
-      onClose();
-    } else {
-      setConsoleLines(newStatuses.flatMap((st, idx) => [`Case ${idx + 1}: ${st.status === 'pass' ? 'PASS' : 'FAIL'}`, `Expected: ${st.expected}`, `Actual: ${st.actual || 'ERROR'}`]));
-    }
-  };
-
-  if (!challenge) return null;
-
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xl">
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 900 }}>
-            LeetCode Challenge Playground
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>Run test cases and submit your C++ / Java solution</Typography>
-        </Box>
-        <IconButton onClick={onClose}><CloseIcon /></IconButton>
-      </DialogTitle>
-      <DialogContent dividers sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '0.45fr 0.55fr' }, gap: 3, minHeight: '60vh' }}>
-        <Box>
-          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>Problem</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', whiteSpace: 'pre-line', mb: 2 }}>{challenge.problem || challenge.instruction}</Typography>
-          {challenge.example && (
-            <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: 'background.paper' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Example</Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary', whiteSpace: 'pre-line' }}><strong>Input:</strong> {challenge.example.input}</Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary', whiteSpace: 'pre-line' }}><strong>Output:</strong> {challenge.example.output}</Typography>
-              {challenge.example.explanation && (
-                <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}><strong>Explanation:</strong> {challenge.example.explanation}</Typography>
-              )}
-            </Paper>
-          )}
-          {challenge.inputFormat && <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}><strong>Input Format:</strong> {challenge.inputFormat}</Typography>}
-          {challenge.outputFormat && <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}><strong>Output Format:</strong> {challenge.outputFormat}</Typography>}
-          {challenge.constraints && <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}><strong>Constraints:</strong> {challenge.constraints}</Typography>}
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>Test Cases</Typography>
-            {(challenge.testCases || []).map((tc, idx) => {
-              const status = testCaseStatuses[idx]?.status || 'idle';
-              return (
-                <Paper key={idx} variant="outlined" sx={{ p: 2, mb: 1, borderColor: status === 'pass' ? 'success.main' : status === 'fail' ? 'error.main' : 'divider' }}>
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}><strong>Input:</strong> {tc.input || '(empty)'}</Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}><strong>Expected:</strong> {tc.expectedOutput}</Typography>
-                  {status !== 'idle' && (
-                    <Typography variant="caption" sx={{ color: status === 'pass' ? 'success.main' : 'error.main', fontWeight: 700 }}>{status.toUpperCase()}</Typography>
-                  )}
-                </Paper>
-              );
-            })}
-          </Box>
-        </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Box sx={{ flex: 1, borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <Editor
-              height="100%"
-              theme={editorTheme}
-              language={(challenge.starterCode?.language || 'cpp').toLowerCase()}
-              value={code}
-              onChange={(value) => setCode(value || '')}
-              options={{ minimap: { enabled: false }, fontSize: 13, wordWrap: 'on' }}
-            />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 800 }}>Output Console</Typography>
-            <Box className="challenge-console">
-              {consoleLines.length > 0 ? consoleLines.map((line, idx) => (
-                <p key={idx} style={{ margin: 0 }}>{line}</p>
-              )) : (
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>Run or submit your code to see results.</Typography>
-              )}
-            </Box>
-          </Box>
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, p: 2 }}>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button variant="contained" onClick={runTestCases} disabled={isCompiling} startIcon={<TerminalIcon />} sx={{ textTransform: 'none' }}>
-            Run Test Cases
-          </Button>
-          <Button variant="outlined" onClick={handleSubmit} disabled={isCompiling} sx={{ textTransform: 'none' }}>
-            Submit Solution
-          </Button>
-        </Box>
-        <Typography variant="caption" sx={{ color: 'text.secondary' }}>Use the editor to update code and verify results.</Typography>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
 const LearningContentPage = () => {
   const { courseId, sectionId, lessonId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const theme = useTheme();
-  const isMobileViewport = useMediaQuery(theme.breakpoints.down('sm'));
+  const isDarkMode = theme.palette.mode === 'dark';
 
-  const [course, setCourse] = useState(location.state?.course || null);
   const [lesson, setLesson] = useState(null);
-  const [pages, setPages] = useState([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [answers, setAnswers] = useState({});
-  const [fillCodeValues, setFillCodeValues] = useState({});
-  const [errorMessage, setErrorMessage] = useState('');
-  const [selectedChallenge, setSelectedChallenge] = useState(null);
-  const [isChallengeOpen, setIsChallengeOpen] = useState(false);
-  const [isCompilerOpen, setIsCompilerOpen] = useState(false);
-  const [compilerInitialCode, setCompilerInitialCode] = useState('');
-  const isComputerScience = useMemo(() => {
-    return courseId?.toLowerCase()?.includes('computer-science') || String(courseId) === '2';
-  }, [courseId]);
+  const [completionSaved, setCompletionSaved] = useState(false);
+  const [exerciseAnswers, setExerciseAnswers] = useState({});
+  const [blockSelectedIndex, setBlockSelectedIndex] = useState({});
+  const [blankValues, setBlankValues] = useState({});
+  const [progress, setProgress] = useState(loadProgress());
 
+  // Playground dialog state
+  const [cppPlaygroundOpen, setCppPlaygroundOpen] = useState(false);
+  const [javaPlaygroundOpen, setJavaPlaygroundOpen] = useState(false);
+  const [playgroundCode, setPlaygroundCode] = useState('');
+
+  // Code challenge state
+  const [isChallengeOpen, setIsChallengeOpen] = useState(false);
+  const [selectedChallenge, setSelectedChallenge] = useState(null);
+  const [selectedChallengeBlockIdx, setSelectedChallengeBlockIdx] = useState(null);
+
+  // Interactive states
+  const [activeCardId, setActiveCardId] = useState(null);
+  const [activeDetail, setActiveDetail] = useState('');
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Grade dialog state
+  const [showGradeDialog, setShowGradeDialog] = useState(false);
+  const [gradeInfo, setGradeInfo] = useState(null);
+
+  // Reset interactive states when page changes
   useEffect(() => {
-    const loadLesson = async () => {
+    setActiveCardId(null);
+    setActiveDetail('');
+    setActiveTab(0);
+  }, [currentPageIndex]);
+
+  // Load lesson from info.csv
+  useEffect(() => {
+    const loadLessonContent = async () => {
       setIsLoading(true);
       try {
-        let normalizedCourse = course;
-        if (!normalizedCourse) {
-          const rawCourses = await loadCourseFile();
-          const rawCourse = findCourseByIdOrSlug(rawCourses, courseId);
-          normalizedCourse = rawCourse ? normalizeCourse(rawCourse) : null;
-          setCourse(normalizedCourse);
+        const data = await getLessonById(courseId, sectionId, lessonId);
+        if (data) {
+          setLesson(data);
         }
-
-        if (!normalizedCourse) {
-          setLesson(null);
-          setPages([]);
-          return;
-        }
-
-        const section = normalizedCourse.sections?.find(s => String(s.id) === String(sectionId));
-        const foundLesson = section?.lessons?.find(l => String(l.id) === String(lessonId));
-        setLesson(foundLesson || null);
-        setPages(foundLesson?.pages || []);
-        setCurrentPageIndex(0);
-        // Do NOT clear answers/fillCodeValues here — preserve them so navigating back
-        // within the same lesson shows previous answers.
       } catch (err) {
-        console.error('Failed to load lesson content:', err);
-        setLesson(null);
-        setPages([]);
+        console.warn('Failed to load lesson:', err);
       } finally {
         setIsLoading(false);
       }
     };
-    loadLesson();
+    loadLessonContent();
   }, [courseId, sectionId, lessonId]);
 
-  const currentPage = useMemo(() => pages[currentPageIndex] || null, [pages, currentPageIndex]);
-  const progress = useMemo(() => {
-    if (!pages.length) return 0;
-    return Math.round(((currentPageIndex + 1) / pages.length) * 100);
-  }, [pages.length, currentPageIndex]);
+  const hasPages = lesson && lesson.pages && lesson.pages.length > 0;
+  const pages = lesson?.pages || [];
+  const currentPage = hasPages ? pages[currentPageIndex] : null;
+  const progressPercent = hasPages ? ((currentPageIndex + 1) / pages.length) * 100 : 0;
 
-  const answerForBlock = (page, blockIndex) => answers[_blockKey(page, blockIndex)];
-
-  const isInputCorrect = (input, key) => {
-    if (!input || typeof input.expectedAnswer !== 'string') return false;
-    const value = String(fillCodeValues[key] || '').trim();
-    return value === String(input.expectedAnswer || '').trim();
-  };
-
-  const setMultipleChoiceAnswer = (page, blockIndex, answerIndex) => {
-    setAnswers(prev => ({ ...prev, [_blockKey(page, blockIndex)]: answerIndex }));
-  };
-
-  const setFillCodeAnswer = (page, blockIndex, inputIndex, value) => {
-    const key = `${_blockKey(page, blockIndex)}-${inputIndex}`;
-    setFillCodeValues(prev => ({ ...prev, [key]: value }));
-  };
-
-  const setChallengeAnswer = (page, blockIndex, value) => {
-    setAnswers(prev => ({ ...prev, [_blockKey(page, blockIndex)]: value }));
-  };
-
-  const isBlockComplete = (page, blockIndex, block) => {
-    const key = _blockKey(page, blockIndex);
-
-    if (!block || !block.type) return true;
-    if (block.type === 'mcq' || block.type === 'find_error') {
-      return typeof answers[key] === 'number';
-    }
-    if (block.type === 'fill_code' || block.type === 'write_line') {
-      const inputs = getCodeLines(block).filter(line => line.type === 'input');
-      return inputs.every((input, idx) => {
-        const inputKey = `${key}-${idx}`;
-        return String(fillCodeValues[inputKey] || '').trim().length > 0;
-      });
-    }
-    if (block.type === 'code_challenge') {
-      return answers[key] === true;
+  const isPageCompleted = (pageIdx) => {
+    const page = pages[pageIdx];
+    if (!page || !page.blocks) return true;
+    for (let idx = 0; idx < page.blocks.length; idx++) {
+      const block = page.blocks[idx];
+      if (['mcq', 'fill_code', 'write_line', 'find_error', 'code_challenge'].includes(block.type)) {
+        const key = _blockKey(pageIdx, idx);
+        if (exerciseAnswers[key] === undefined) return false;
+      }
     }
     return true;
   };
 
-  const isPageCompleted = (page) => {
-    if (!page?.blocks || page.blocks.length === 0) return true;
-    return page.blocks.every((block, index) => isBlockComplete(page, index, block));
-  };
-
-  const computeLessonScore = () => {
-    if (!pages.length || !lesson) return 100;
-    let total = 0;
-    let correct = 0;
-
-    pages.forEach((page) => {
-      (page.blocks || []).forEach((block, blockIndex) => {
-        const key = _blockKey(page, blockIndex);
-        if (block.type === 'mcq' || block.type === 'find_error') {
-          total += 1;
-          if (typeof answers[key] === 'number' && answers[key] === block.correctAnswer) {
-            correct += 1;
-          }
-        }
-        if (block.type === 'fill_code' || block.type === 'write_line') {
-          const inputs = getCodeLines(block).filter(line => line.type === 'input');
-          if (inputs.length > 0) {
-            total += 1;
-            const allCorrect = inputs.every((input, idx) => isInputCorrect(input, `${key}-${idx}`));
-            if (allCorrect) correct += 1;
-          }
-        }
-        if (block.type === 'code_challenge') {
-          total += 1;
-          if (answers[key] === true) correct += 1;
-        }
-      });
-    });
-
-    return total === 0 ? 100 : Math.round((correct / total) * 100);
-  };
-
-  const handlePageChange = (delta) => {
-    const nextIndex = currentPageIndex + delta;
-    if (nextIndex >= 0 && nextIndex < pages.length) {
-      setCurrentPageIndex(nextIndex);
-      setErrorMessage('');
+  const handleNext = () => {
+    if (currentPageIndex < pages.length - 1) {
+      setCurrentPageIndex(prev => prev + 1);
+    } else {
+      handleFinish();
     }
   };
 
-  const handleGoBack = () => navigate('/');
+  const handlePrevious = () => {
+    if (currentPageIndex > 0) {
+      setCurrentPageIndex(prev => prev - 1);
+    }
+  };
 
   const handleFinish = () => {
-    if (currentPage && !isPageCompleted(currentPage)) {
-      setErrorMessage('Please complete the current activity before continuing.');
-      return;
+    if (completionSaved) {
+       navigate(`/course/${courseId}/${sectionId}`, { state: { returnedFromLessonId: lessonId } });
+       return;
     }
-    const percentage = computeLessonScore();
-    navigate('/', { state: { quizResult: { lessonId: lesson?.id, percentage } } });
+    
+    if (lesson?.id) {
+      setCompletionSaved(true);
+      let grade = 100;
+      let totalQuestions = 0;
+      let correctQuestions = 0;
+      let totalPts = 0;
+      let earnedPts = 0;
+
+      pages.forEach((page, pageIdx) => {
+        if (page.blocks) {
+          page.blocks.forEach((block, blockIdx) => {
+            if (['mcq', 'fill_code', 'write_line', 'find_error', 'code_challenge'].includes(block.type)) {
+              totalQuestions++;
+              const pts = block.type === 'code_challenge' ? 3 : 1;
+              totalPts += pts;
+              
+              const key = _blockKey(pageIdx, blockIdx);
+              if (exerciseAnswers[key] === true) {
+                correctQuestions++;
+                earnedPts += pts;
+              }
+            }
+          });
+        }
+      });
+
+      if (totalPts > 0) grade = Math.round((earnedPts / totalPts) * 100);
+
+      const updatedProgress = { ...progress, [lesson.id]: grade };
+      saveProgress(updatedProgress);
+      setProgress(updatedProgress);
+
+      if (totalQuestions > 0) {
+        setGradeInfo({
+          grade,
+          totalQuestions,
+          correctQuestions,
+          totalPts,
+          earnedPts
+        });
+        setShowGradeDialog(true);
+      } else {
+        navigate(`/course/${courseId}/${sectionId}`, { state: { returnedFromLessonId: lessonId } });
+      }
+    } else {
+      navigate(`/course/${courseId}/${sectionId}`, { state: { returnedFromLessonId: lessonId } });
+    }
   };
 
-  const renderBlock = (block, page, pageIndex, blockIndex) => {
-    if (!block) return null;
-    const key = _blockKey(page, blockIndex);
+  const handleOpenCppPlayground = (codeBlock) => {
+    setPlaygroundCode(codeBlock);
+    setCppPlaygroundOpen(true);
+  };
 
+  const handleOpenJavaPlayground = (codeBlock) => {
+    setPlaygroundCode(codeBlock);
+    setJavaPlaygroundOpen(true);
+  };
+
+  const renderBlock = (block, idx) => {
     switch (block.type) {
-      case 'heading':
+      case 'uml_diagram':
+        return <UmlDiagram key={idx} data={block.raw || block} />;
+
+      case 'mcq':
+      case 'find_error': {
+        const questionText = block.question || block.instruction || block.text || '';
+        const answers = block.answers || block.raw?.answers || [];
+        const correctAnswer = block.correctAnswer !== undefined ? block.correctAnswer : (block.correctAnswerIndex !== undefined ? block.correctAnswerIndex : (block.raw?.correctAnswer !== undefined ? block.raw.correctAnswer : 0));
+        const codeSnippet = block.codeSnippet || block.raw?.codeSnippet || null;
+        const key = _blockKey(currentPageIndex, idx);
         return (
-          <Typography
-            key={key}
-            variant={block.level === 1 ? 'h4' : block.level === 2 ? 'h5' : 'h6'}
-            sx={{ mt: 3, mb: 1, fontWeight: 800 }}
-            dangerouslySetInnerHTML={{ __html: block.text || '' }}
+          <InlineMcqWidget key={idx} question={questionText} answers={answers}
+            correctAnswerIndex={correctAnswer} codeSnippet={codeSnippet}
+            initiallyAnswered={exerciseAnswers[key] !== undefined}
+            initialSelectedIndex={blockSelectedIndex[key]}
+            isDarkMode={isDarkMode}
+            onAnswered={(selectedIdx, isCorrect) => {
+              setBlockSelectedIndex(prev => ({ ...prev, [key]: selectedIdx }));
+              setExerciseAnswers(prev => ({ ...prev, [key]: isCorrect }));
+            }}
           />
         );
-      case 'paragraph':
+      }
+
+      case 'fill_code':
+      case 'write_line': {
+        const key = _blockKey(currentPageIndex, idx);
+        const instruction = block.instruction || block.raw?.instruction || '';
+        const fileName = block.fileName || block.raw?.fileName || '';
+        const template = block.codeTemplate || block.raw?.codeTemplate || {};
+        const codeLines = template.lines || [];
+        const language = template.language || block.language || block.raw?.language || 'cpp';
         return (
-          <Typography
-            key={key}
-            variant="body1"
-            sx={{ mb: 2, whiteSpace: 'pre-line', color: 'text.secondary' }}
-            dangerouslySetInnerHTML={{ __html: block.text || '' }}
+          <InlineCodeExerciseWidget key={idx} blockType={block.type}
+            instruction={instruction} fileName={fileName}
+            codeLines={codeLines} language={language}
+            initiallyAnswered={exerciseAnswers[key] !== undefined}
+            initialInputValues={blankValues[key]}
+            isDarkMode={isDarkMode}
+            onAnswered={(isCorrect) => setExerciseAnswers(prev => ({ ...prev, [key]: isCorrect }))}
           />
         );
-      case 'bullet_list':
+      }
+
+      case 'code_challenge': {
+        const key = _blockKey(currentPageIndex, idx);
+        const isSolved = exerciseAnswers[key] === true;
+        const isSkipped = exerciseAnswers[key] === false;
+        
         return (
-          <Box key={key} component="ul" sx={{ mb: 2, pl: 3, color: 'text.secondary' }}>
-            {(block.items || []).map((item, idx) => (
-              <li key={idx} style={{ marginBottom: 10 }}>
-                <Typography variant="body1" component="span">
-                  {item.bold ? <strong>{item.bold}</strong> : null}
-                  {item.text || ''}
-                </Typography>
-              </li>
-            ))}
+          <Box key={idx} className="code-challenge-block glass-panel" style={{ padding: '20px 24px', margin: '20px 0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', borderRadius: '10px', background: isSolved ? 'rgba(76, 175, 80, 0.1)' : isSkipped ? 'rgba(158, 158, 158, 0.1)' : 'rgba(28, 176, 246, 0.1)' }}>
+                <TrophyIcon style={{ color: isSolved ? '#4CAF50' : isSkipped ? '#9e9e9e' : 'var(--primary-main)' }} />
+              </Box>
+              <Box>
+                <Typography variant="subtitle1" style={{ fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2 }}>Code Challenge</Typography>
+                {isSolved ? (
+                  <Typography variant="caption" style={{ color: '#4CAF50', fontWeight: 700 }}>Completed ✅</Typography>
+                ) : isSkipped ? (
+                  <Typography variant="caption" style={{ color: '#9e9e9e', fontWeight: 700 }}>Skipped ⏭</Typography>
+                ) : (
+                  <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Test your skills</Typography>
+                )}
+              </Box>
+            </Box>
+            <Box style={{ display: 'flex', gap: '12px' }}>
+              {(!isSolved && !isSkipped) && (
+                <Button
+                  variant="outlined"
+                  onClick={() => setExerciseAnswers(prev => ({ ...prev, [key]: false }))}
+                  style={{
+                    borderColor: 'rgba(255,255,255,0.2)',
+                    color: 'var(--text-secondary)',
+                    borderRadius: '12px',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    padding: '8px 16px',
+                  }}
+                >
+                  Skip
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                onClick={() => {
+                  setSelectedChallenge(block.raw || block);
+                  setSelectedChallengeBlockIdx(idx);
+                  setIsChallengeOpen(true);
+                }}
+                style={{
+                  background: isSolved ? 'rgba(76, 175, 80, 0.12)' : isSkipped ? 'rgba(158, 158, 158, 0.12)' : 'var(--hero-gradient)',
+                  color: isSolved ? '#4CAF50' : isSkipped ? '#9e9e9e' : '#fff',
+                  border: isSolved ? '1.5px solid #4CAF50' : isSkipped ? '1.5px solid #9e9e9e' : 'none',
+                  borderRadius: '12px',
+                  textTransform: 'none',
+                  fontWeight: 800,
+                  padding: '8px 20px',
+                  boxShadow: (isSolved || isSkipped) ? 'none' : '0 4px 14px rgba(28, 176, 246, 0.3)'
+                }}
+              >
+                {isSolved ? 'Retake Challenge' : isSkipped ? 'Try Challenge' : 'Solve Challenge'}
+              </Button>
+            </Box>
           </Box>
         );
+      }
+
+      case 'heading': {
+        const level = block.level || 1;
+        const variant = level === 1 ? 'h4' : level === 2 ? 'h5' : 'h6';
+        return <Typography key={idx} variant={variant} className={`slide-heading slide-h${level}`} gutterBottom>
+          {parseFormattedText(block.text, true)}
+        </Typography>;
+      }
+
+      case 'paragraph':
+        return <Typography key={idx} variant="body1" className="slide-paragraph">
+          {parseFormattedText(block.text)}
+        </Typography>;
+
+      case 'bullet_list':
+        return (
+          <ul key={idx} className="slide-bullet-list">
+            {block.items?.map((item, i) => (
+              <li key={i} className="slide-bullet-item">
+                {item.bold && <strong className="slide-bullet-bold">{item.bold}</strong>}
+                <span className="slide-bullet-text">{parseFormattedText(item.text)}</span>
+              </li>
+            ))}
+          </ul>
+        );
+
+      case 'callout': {
+        const variant = block.variant || 'info';
+        const icon =
+          variant === 'warning' ? <WarningIcon className="callout-icon warning" /> :
+          variant === 'success' ? <SuccessIcon className="callout-icon success" /> :
+          variant === 'error' ? <ErrorIcon className="callout-icon error" /> :
+          <InfoIcon className="callout-icon info" />;
+        return (
+          <Box key={idx} className={`slide-callout ${variant}`}>
+            {icon}
+            <Typography variant="body2" className="callout-text">
+              {parseFormattedText(block.text)}
+            </Typography>
+          </Box>
+        );
+      }
+
       case 'table':
         return (
-          <Paper key={key} variant="outlined" sx={{ p: 2, mb: 2, overflowX: 'auto' }}>
-            <table>
-              <thead>
-                <tr>
-                  {(block.headers || []).map((header, idx) => (
-                    <th key={idx}>{header}</th>
-                  ))}
-                </tr>
-              </thead>
+          <Paper key={idx} className="slide-table-container glass-panel" elevation={0}>
+            <table className="slide-table">
+              {block.headers && block.headers.length > 0 && (
+                <thead><tr>{block.headers.map((h, i) => <th key={i}>{h}</th>)}</tr></thead>
+              )}
               <tbody>
-                {(block.rows || []).map((row, rowIdx) => (
-                  <tr key={rowIdx}>
-                    {row.map((cell, cellIdx) => (
-                      <td key={cellIdx}>
-                        {cell.bold ? <strong>{cell.bold}</strong> : null}
-                        {cell.text || ''}
+                {block.rows?.map((row, rIdx) => (
+                  <tr key={rIdx}>
+                    {row.map((cell, cIdx) => (
+                      <td key={cIdx}>
+                        {cell.bold && <strong>{cell.bold}</strong>}
+                        {parseFormattedText(cell.text)}
                       </td>
                     ))}
                   </tr>
@@ -1142,73 +705,37 @@ const LearningContentPage = () => {
             </table>
           </Paper>
         );
-      case 'callout':
-        return (
-          <Paper key={key} variant="outlined" sx={{ p: 3, mb: 2, bgcolor: 'action.selected', borderLeft: '4px solid', borderColor: block.variant === 'warning' ? 'warning.main' : block.variant === 'success' ? 'success.main' : 'primary.main' }}>
-            <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-              {block.text}
-            </Typography>
-          </Paper>
-        );
-      case 'image':
-        return (
-          <Box key={key} sx={{ mb: 3, textAlign: 'center' }}>
-            {block.src ? (
-              <Box
-                component="img"
-                src={block.src}
-                alt={block.alt || 'illustration'}
-                sx={{ width: '100%', maxWidth: 780, borderRadius: 4, boxShadow: 3 }}
-              />
-            ) : (
-              <Paper sx={{ p: 4, mb: 2, bgcolor: 'background.default' }}>
-                <Typography variant="body2" color="text.secondary">
-                  Image preview unavailable.
-                </Typography>
-              </Paper>
-            )}
-            {block.alt && (
-              <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}>
-                {block.alt}
-              </Typography>
-            )}
-          </Box>
-        );
+
       case 'normal_code': {
         const snippet = block.codeSnippet || block.raw?.codeSnippet || {};
         const language = snippet.language || block.raw?.language || block.language || 'code';
         const rawLines = snippet.lines || block.raw?.lines || block.lines || block.text?.split('\n') || [];
-        const isCpp = language.toLowerCase() === 'cpp' || language.toLowerCase() === 'c++';
-        const isRunable = block.runable !== false && (block.raw?.runable !== false);
-
+        const isRunable = block.runable !== undefined ? block.runable : (snippet.runable !== undefined ? snippet.runable : false);
+        const codeText = rawLines.join('\n');
         return (
-          <Paper key={key} className="slide-code-card" elevation={0}>
+          <Paper key={idx} className="slide-code-card" elevation={0}>
             <div className="code-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <CodeIcon fontSize="small" className="code-header-icon" />
                 <span>{language.toUpperCase()}</span>
               </div>
-              {isCpp && isComputerScience && isRunable && (
+              {isRunable && (
                 <Button
                   size="small"
-                  variant="contained"
-                  startIcon={<PlayArrowIcon sx={{ fontSize: 14 }} />}
-                  onClick={() => {
-                    setCompilerInitialCode(rawLines.join('\n'));
-                    setIsCompilerOpen(true);
-                  }}
+                  variant="outlined"
+                  startIcon={<TerminalIcon />}
+                  onClick={() => language.toLowerCase() === 'java' ? handleOpenJavaPlayground(codeText) : handleOpenCppPlayground(codeText)}
                   style={{
-                    padding: '3px 10px',
                     borderRadius: '8px',
-                    fontSize: '0.72rem',
                     fontWeight: 700,
                     textTransform: 'none',
-                    background: 'var(--hero-gradient)',
-                    color: '#fff',
-                    boxShadow: '0 4px 10px rgba(var(--primary-main-rgb), 0.2)'
+                    fontSize: '0.75rem',
+                    padding: '4px 12px',
+                    borderColor: 'var(--primary-main)',
+                    color: 'var(--primary-main)',
                   }}
                 >
-                  Run Code
+                  Run in Playground
                 </Button>
               )}
             </div>
@@ -1217,7 +744,7 @@ const LearningContentPage = () => {
                 {rawLines.map((line, lIdx) => (
                   <div key={lIdx} className="code-line">
                     <span className="code-line-number">{lIdx + 1}</span>
-                    <span className="code-line-content">{highlightCppCode(line, theme.palette.mode === 'dark')}</span>
+                    <span className="code-line-content">{highlightCppCode(line, isDarkMode)}</span>
                   </div>
                 ))}
               </pre>
@@ -1225,111 +752,37 @@ const LearningContentPage = () => {
           </Paper>
         );
       }
-      case 'mcq':
-      case 'find_error':
+
+      case 'image': {
+        const src = block.src || block.url || block.raw?.src || block.raw?.url || '';
+        const alt = block.alt || block.caption || block.text || block.raw?.alt || '';
         return (
-          <InlineMcqWidget
-            key={key}
-            question={block.question || block.instruction || ''}
-            answers={block.answers || []}
-            correctAnswerIndex={block.correctAnswer}
-            codeSnippet={block.codeSnippet}
-            initiallyAnswered={typeof answers[key] === 'number'}
-            initialSelectedIndex={typeof answers[key] === 'number' ? answers[key] : null}
-            onAnswered={(selectedIndex) => setMultipleChoiceAnswer(page, blockIndex, selectedIndex)}
-            isDarkMode={theme.palette.mode === 'dark'}
-          />
-        );
-      case 'fill_code':
-      case 'write_line': {
-        const codeLines = getCodeLines(block);
-        const inputCount = codeLines.filter(line => line.type === 'input').length;
-        const savedValues = {};
-        let hasSavedValues = false;
-        for (let i = 0; i < inputCount; i++) {
-          const inputKey = `${key}-${i}`;
-          if (fillCodeValues[inputKey] !== undefined) {
-            savedValues[i] = fillCodeValues[inputKey];
-            hasSavedValues = true;
-          }
-        }
-        const wasAnswered = hasSavedValues && Object.keys(savedValues).length === inputCount;
-        return (
-          <InlineCodeExerciseWidget
-            key={key}
-            blockType={block.type}
-            instruction={block.instruction || ''}
-            fileName={block.fileName}
-            codeTemplate={getCodeTemplate(block)}
-            testCases={block.testCases || []}
-            initiallyAnswered={wasAnswered}
-            initialInputValues={wasAnswered ? savedValues : null}
-            onAnswered={(passed) => setChallengeAnswer(page, blockIndex, passed)}
-            isDarkMode={theme.palette.mode === 'dark'}
-          />
+          <Paper key={idx} className="slide-image-card glass-panel" elevation={0} style={{ padding: '24px', margin: '20px 0', border: '1px solid rgba(255,255,255,0.08)', position: 'relative', overflow: 'hidden' }}>
+            <Box style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: 'var(--hero-gradient)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '14px' }}>
+              <Box style={{ display: 'grid', placeItems: 'center', width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(28,176,246,0.1)', border: '1px solid rgba(28,176,246,0.2)', flexShrink: 0 }}>
+                <BookIcon style={{ color: 'var(--primary-main)', fontSize: '24px' }} />
+              </Box>
+              <div style={{ textAlign: 'left' }}>
+                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
+                  {src ? src.replace(/_|-/g, ' ').replace('.png', '') : 'Visual Diagram'}
+                </Typography>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Concept Reference Diagram</Typography>
+              </div>
+            </div>
+            <Box style={{ padding: '14px', background: 'rgba(0,0,0,0.16)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
+              <Typography variant="body2" style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.5, textAlign: 'left' }}>
+                {alt || "Concept visual reference illustration."}
+              </Typography>
+            </Box>
+          </Paper>
         );
       }
-      case 'code_challenge':
-        return (
-          <Paper key={key} variant="outlined" sx={{ p: 3, mb: 2 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 800 }}>
-              Coding Challenge
-            </Typography>
-            <Typography variant="body1" sx={{ mb: 2, color: 'text.secondary', whiteSpace: 'pre-line' }}>
-              {block.problem || block.instruction || 'Solve the challenge below.'}
-            </Typography>
-            {(block.example || block.inputFormat || block.outputFormat || block.constraints) && (
-              <Box sx={{ mb: 2, display: 'grid', gap: 1 }}>
-                {block.inputFormat && (
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}><strong>Input Format:</strong> {block.inputFormat}</Typography>
-                )}
-                {block.outputFormat && (
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}><strong>Output Format:</strong> {block.outputFormat}</Typography>
-                )}
-                {block.constraints && (
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}><strong>Constraints:</strong> {block.constraints}</Typography>
-                )}
-              </Box>
-            )}
-            <Button
-              variant="contained"
-              onClick={() => {
-                setSelectedChallenge(block);
-                setIsChallengeOpen(true);
-              }}
-              sx={{ textTransform: 'none' }}
-            >
-              Open Challenge Playground
-            </Button>
-            {answers[key] === true && (
-              <Typography variant="body2" sx={{ mt: 1, color: 'success.main', fontWeight: 700 }}>
-                ✔ Challenge solved.
-              </Typography>
-            )}
-          </Paper>
-        );
-      case 'uml_diagram':
-        return (
-          <Paper key={key} variant="outlined" sx={{ p: 3, mb: 2 }}>
-            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 700 }}>
-              UML Diagram
-            </Typography>
-            <UmlDiagram
-              data={{
-                title: block.title,
-                attributes: block.attributes || block.Attributes || [],
-                methods: block.methods || block.Methods || []
-              }}
-              compact
-            />
-          </Paper>
-        );
+
       default:
         return (
-          <Box key={key} sx={{ mb: 2 }}>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              {block.text || JSON.stringify(block)}
-            </Typography>
+          <Box key={idx} className="slide-block-default glass-panel">
+            <Typography variant="body2">{block.text || JSON.stringify(block)}</Typography>
           </Box>
         );
     }
@@ -1337,20 +790,19 @@ const LearningContentPage = () => {
 
   if (isLoading) {
     return (
-      <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
-        <CircularProgress />
-        <Typography variant="h6" sx={{ mt: 3 }}>Loading lesson...</Typography>
-      </Container>
+      <Box className="learning-content-loader">
+        <Typography variant="h5" gutterBottom>Loading Lesson...</Typography>
+        <LinearProgress className="loader-progress" />
+      </Box>
     );
   }
 
-  if (!course || !lesson) {
+  if (!lesson) {
     return (
-      <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
-        <Typography variant="h5" sx={{ mb: 2 }}>Lesson not found</Typography>
-        <Typography variant="body1" sx={{ mb: 3 }}>We could not locate that lesson in the course data.</Typography>
-        <Button variant="contained" onClick={handleGoBack} startIcon={<ArrowBackIcon />}>Back to Roadmap</Button>
-      </Container>
+      <Box className="learning-content-empty">
+        <Typography variant="h5" gutterBottom>Lesson not found</Typography>
+        <Button variant="contained" onClick={() => navigate('/')}>Go Back</Button>
+      </Box>
     );
   }
 
@@ -1359,7 +811,7 @@ const LearningContentPage = () => {
       <header className="learning-content-header glass-panel">
         <Container maxWidth="lg" className="learning-header-content">
           <div className="learning-header-left">
-            <IconButton onClick={() => navigate(-1)} className="learning-back-btn">
+            <IconButton onClick={() => navigate(`/course/${courseId}/${sectionId}`, { state: { returnedFromLessonId: lessonId } })} className="learning-back-btn">
               <ArrowBackIcon />
             </IconButton>
             <div>
@@ -1371,75 +823,182 @@ const LearningContentPage = () => {
               </Typography>
             </div>
           </div>
-          <IconButton onClick={() => {
-            const originalCourseId = location.state?.course?.id || courseId;
-            navigate(`/learning-path/${originalCourseId}`, { state: location.state });
-          }} className="learning-close-btn">
+          <IconButton onClick={() => navigate(`/course/${courseId}/${sectionId}`, { state: { returnedFromLessonId: lessonId } })} className="learning-close-btn">
             <CloseIcon />
           </IconButton>
         </Container>
-        <LinearProgress
-          variant="determinate"
-          value={progress}
-          className="learning-progress-bar"
-        />
+        <LinearProgress variant="determinate" value={progressPercent} className="learning-progress-bar" />
       </header>
 
       <Container maxWidth="md" className="learning-slide-deck">
-        {currentPage && (
-          <Box className="learning-slide-container">
-            <Paper className="learning-slide-paper glass-panel-strong" elevation={0}>
-              {currentPage.pageTitle && (
-                <Typography variant="h4" className="slide-page-title" gutterBottom>
-                  {currentPage.pageTitle}
-                </Typography>
-              )}
-              <div className="slide-blocks-list">
-                {currentPage.blocks?.map((block, idx) => renderBlock(block, currentPage, currentPageIndex, idx))}
-              </div>
-            </Paper>
-          </Box>
-        )}
+        <AnimatePresence mode="wait">
+          {currentPage && (
+            <motion.div
+              key={currentPageIndex}
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.28, ease: 'easeOut' }}
+              className="learning-slide-container"
+            >
+              <Paper className="learning-slide-paper glass-panel-strong" elevation={0}>
+                {currentPage.pageTitle && (
+                  <Typography variant="h4" className="slide-page-title" gutterBottom>
+                    {currentPage.pageTitle}
+                  </Typography>
+                )}
+                <div className="slide-blocks-list">
+                  {(() => {
+                    if (!currentPage.blocks) return null;
+                    const elements = [];
+                    let i = 0;
+                    while (i < currentPage.blocks.length) {
+                      const block = currentPage.blocks[i];
+                      if (block.type === 'uml_diagram' || block.raw?.type === 'uml_diagram') {
+                        const group = [{ block, originalIdx: i }];
+                        let j = i + 1;
+                        while (j < currentPage.blocks.length && (currentPage.blocks[j].type === 'uml_diagram' || currentPage.blocks[j].raw?.type === 'uml_diagram')) {
+                          group.push({ block: currentPage.blocks[j], originalIdx: j });
+                          j++;
+                        }
+                        if (group.length > 1) {
+                          elements.push(
+                            <Box key={`uml-group-${i}`} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 3 }}>
+                              {group.map((item, index) => (
+                                <React.Fragment key={item.originalIdx}>
+                                  {index > 0 && (
+                                    <svg width="24" height="40" viewBox="0 0 24 40" style={{ display: 'block', margin: '4px 0' }}>
+                                      <polygon points="12,0 0,16 24,16" fill="none" stroke="var(--primary-main)" strokeWidth="2" />
+                                      <line x1="12" y1="16" x2="12" y2="40" stroke="var(--primary-main)" strokeWidth="2" />
+                                    </svg>
+                                  )}
+                                  <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                                    {renderBlock(item.block, item.originalIdx)}
+                                  </Box>
+                                </React.Fragment>
+                              ))}
+                            </Box>
+                          );
+                        } else {
+                          elements.push(
+                            <Box key={`uml-${i}`} sx={{ my: 3 }}>
+                              {renderBlock(block, i)}
+                            </Box>
+                          );
+                        }
+                        i = j;
+                      } else {
+                        elements.push(renderBlock(block, i));
+                        i++;
+                      }
+                    }
+                    return elements;
+                  })()}
+                </div>
+              </Paper>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Container>
 
       <footer className="learning-content-footer glass-panel">
         <Container maxWidth="md" className="learning-footer-content">
-          <Button
-            variant="outlined"
-            onClick={() => handlePageChange(-1)}
-            disabled={currentPageIndex === 0}
-            startIcon={<ArrowBackIcon />}
-            className="footer-nav-btn"
-          >
+          <Button variant="outlined" onClick={handlePrevious}
+            disabled={currentPageIndex === 0} startIcon={<LeftIcon />}
+            className="footer-nav-btn">
             Previous
           </Button>
-          <Button
-            variant="contained"
-            onClick={currentPageIndex === pages.length - 1 ? handleFinish : () => handlePageChange(1)}
-            endIcon={currentPageIndex === pages.length - 1 ? undefined : <ArrowForwardIcon />}
-            className="footer-nav-btn primary"
-          >
+          <Button variant="contained" onClick={handleNext}
+            disabled={!isPageCompleted(currentPageIndex)} endIcon={<RightIcon />}
+            className="footer-nav-btn primary">
             {currentPageIndex === pages.length - 1 ? 'Finish Lesson' : 'Next'}
           </Button>
         </Container>
       </footer>
 
+      {/* C++ Compiler Playground Dialog */}
       <CppPlaygroundDialog
-        open={isCompilerOpen}
-        onClose={() => setIsCompilerOpen(false)}
-        initialCode={compilerInitialCode}
+        open={cppPlaygroundOpen}
+        onClose={() => setCppPlaygroundOpen(false)}
+        initialCode={playgroundCode}
       />
-      <ChallengePlaygroundDialog
-        open={isChallengeOpen}
-        onClose={() => setIsChallengeOpen(false)}
-        challenge={selectedChallenge}
-        isDarkMode={theme.palette.mode === 'dark'}
-        onSolved={() => {
-          if (!selectedChallenge) return;
-          const pageKey = _blockKey(currentPage, currentPage.blocks.findIndex(b => b === selectedChallenge));
-          setAnswers(prev => ({ ...prev, [pageKey]: true }));
+      {/* Java OOP Playground Dialog */}
+      <JavaOopUmlPlayground
+        open={javaPlaygroundOpen}
+        onClose={() => setJavaPlaygroundOpen(false)}
+        initialCode={playgroundCode}
+      />
+      {/* Code Challenge Dialog */}
+      {selectedChallenge && (
+        <ChallengePlaygroundDialog
+          open={isChallengeOpen}
+          onClose={() => setIsChallengeOpen(false)}
+          challenge={selectedChallenge}
+          isDarkMode={isDarkMode}
+          onSolved={() => {
+            if (selectedChallengeBlockIdx !== null) {
+              const key = _blockKey(currentPageIndex, selectedChallengeBlockIdx);
+              setExerciseAnswers(prev => ({ ...prev, [key]: true }));
+            }
+          }}
+        />
+      )}
+      {/* Grade Dialog */}
+      <Dialog
+        open={showGradeDialog}
+        onClose={() => navigate(`/course/${courseId}/${sectionId}`, { state: { returnedFromLessonId: lessonId } })}
+        PaperProps={{
+          style: {
+            background: isDarkMode ? '#1e1e2d' : '#ffffff',
+            borderRadius: '16px',
+            minWidth: '350px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+          }
         }}
-      />
+      >
+        <DialogTitle style={{ textAlign: 'center', paddingTop: '32px' }}>
+          <TrophyIcon style={{ fontSize: 64, color: '#FFD700', marginBottom: '16px' }} />
+          <Typography variant="h4" style={{ fontWeight: 800, color: isDarkMode ? '#fff' : '#000' }}>
+            Exercise Completed!
+          </Typography>
+        </DialogTitle>
+        <DialogContent style={{ textAlign: 'center', paddingBottom: '24px' }}>
+          {gradeInfo && (
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '8px' }}>
+              <Typography variant="h2" style={{ fontWeight: 900, color: 'var(--primary-main)' }}>
+                {gradeInfo.grade}%
+              </Typography>
+              <Typography variant="body1" style={{ color: isDarkMode ? '#b0b0c0' : '#666', fontSize: '1.1rem' }}>
+                You got <b>{gradeInfo.correctQuestions}</b> out of <b>{gradeInfo.totalQuestions}</b> questions correct.
+              </Typography>
+              <Box style={{ background: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', padding: '12px', borderRadius: '12px', display: 'inline-block' }}>
+                <Typography variant="body2" style={{ color: isDarkMode ? '#fff' : '#000' }}>
+                  Points Earned: <b>{gradeInfo.earnedPts}</b> / {gradeInfo.totalPts}
+                </Typography>
+                <Typography variant="caption" style={{ color: isDarkMode ? '#888' : '#888', display: 'block', marginTop: '4px' }}>
+                  (Code challenges are worth 3 pts, others 1 pt)
+                </Typography>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions style={{ justifyContent: 'center', paddingBottom: '32px' }}>
+          <Button 
+            variant="contained" 
+            onClick={() => navigate(`/course/${courseId}/${sectionId}`, { state: { returnedFromLessonId: lessonId } })}
+            style={{ 
+              background: 'var(--hero-gradient)', 
+              color: '#fff', 
+              borderRadius: '24px', 
+              padding: '12px 32px',
+              fontWeight: 700,
+              fontSize: '1.1rem'
+            }}
+          >
+            Continue to Roadmap
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -1,8 +1,8 @@
 {
         "id": 2,
         "title": "Computer Science Basics",
-        "description": "Master the fundamentals of computer science \u2014 from hardware and software to programming, data structures, and databases.",
-        "about": "This course takes you from zero to confident programmer. You'll start with how computers actually work (hardware, memory, operating systems), then learn C++ programming, object-oriented design, data structures, and database management. Perfect for beginners or anyone wanting a solid CS foundation.",
+        "description": "Master the fundamentals of computer science",
+        "about": "This course takes you from zero to confident programmer.",
         "imageUrl": "https://cdn-icons-png.flaticon.com/512/1055/1055687.png",
         "comingsoon": false,
         "totalLessons": 124,
@@ -30,11 +30,6 @@
                                     {
                                         "text": "A computer system consists of two fundamental parts: Hardware and Software. Understanding how these components interact is essential for anyone learning to program.",
                                         "type": "paragraph"
-                                    },
-                                    {
-                                        "alt": "Diagram showing the two main components of a computer system: Hardware and Software",
-                                        "src": "computer_system_overview.png",
-                                        "type": "image"
                                     }
                                 ],
                                 "pageId": 1,
@@ -76,11 +71,6 @@
                                                 "text": ": permanent record of data, often stored on a disk"
                                             }
                                         ]
-                                    },
-                                    {
-                                        "alt": "Diagram illustrating the five main hardware components of a computer system",
-                                        "src": "hardware_five_components.png",
-                                        "type": "image"
                                     }
                                 ],
                                 "pageId": 2,

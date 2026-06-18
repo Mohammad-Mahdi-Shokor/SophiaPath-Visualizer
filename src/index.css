@@ -218,18 +218,3 @@ button,
   display: inline;
   vertical-align: middle;
 }
-
-.visualizer-theme-toggle {
-  position: fixed !important;
-  top: 18px !important;
-  right: 18px !important;
-  z-index: 12000 !important;
-  width: 46px !important;
-  height: 46px !important;
-  color: var(--primary-main) !important;
-  background: var(--surface-glass-strong) !important;
-  border: 1px solid var(--divider) !important;
-  box-shadow: var(--shadow-soft) !important;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-}

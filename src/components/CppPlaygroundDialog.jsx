@@ -24,7 +24,7 @@ import {
 import Editor from '@monaco-editor/react';
 import html2canvas from 'html2canvas';
 
-const translateCppToJs = (cppCode, inputStr) => {
+export const translateCppToJs = (cppCode, inputStr) => {
   // 1. Clean comments
   let code = cppCode
     .replace(/\/\/.*$/gm, "") 
@@ -305,10 +305,114 @@ const extractMainMethodBody = (javaCode) => {
   return { mainBody, remainingCode };
 };
 
-const translateJavaToJs = (javaCode, inputStr) => {
-  let code = javaCode
+const extractMethodBody = (methodStr, startIndex) => {
+  const openBraceIdx = methodStr.indexOf('{', startIndex);
+  if (openBraceIdx === -1) return null;
+  let depth = 1;
+  for (let i = openBraceIdx + 1; i < methodStr.length; i++) {
+    if (methodStr[i] === '{') depth++;
+    else if (methodStr[i] === '}') {
+      depth--;
+      if (depth === 0) return { body: methodStr.substring(openBraceIdx + 1, i), closeIdx: i };
+    }
+  }
+  return null;
+};
+
+const processMethodsAndConstructors = (code, classNames, allTypes, extendsMap) => {
+  let modifiedCode = code;
+
+  // Process constructors
+  classNames.forEach(className => {
+    const constrRegex = new RegExp(`\\b(?:(?:public|private|protected|internal)\\s+)*${className}\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
+    let match;
+    while ((match = constrRegex.exec(modifiedCode)) !== null) {
+      const paramStr = match[1];
+      const bodyInfo = extractMethodBody(modifiedCode, match.index);
+      
+      if (bodyInfo) {
+        let body = bodyInfo.body;
+        let cleanedParams = [];
+        
+        if (paramStr.trim()) {
+          const params = paramStr.split(',').map(p => {
+            const parts = p.trim().split(/\s+/);
+            return parts[parts.length - 1]; // get the parameter name
+          });
+          params.forEach(p => {
+            if (p === 'args') {
+               cleanedParams.push(p);
+               return; // skip main args
+            }
+            const pRegex = new RegExp(`(?<!this\\.|\\.)\\b${p}\\b`, 'g');
+            body = body.replace(pRegex, `__p_${p}`);
+            cleanedParams.push(`__p_${p}`);
+          });
+        }
+        
+        let newMethod = `constructor(${cleanedParams.join(', ')}) {`;
+        if (extendsMap[className]) {
+          newMethod += ' super();';
+        }
+        newMethod += body + '}';
+        
+        modifiedCode = modifiedCode.substring(0, match.index) + newMethod + modifiedCode.substring(bodyInfo.closeIdx + 1);
+        constrRegex.lastIndex = match.index + newMethod.length;
+      }
+    }
+  });
+
+  // Process normal methods
+  allTypes.concat(['void']).forEach(type => {
+    const methodRegex = new RegExp(`\\b(?:(?:public|private|protected|static|final|abstract|synchronized|transient|volatile)\\s+)*${type}(?:\\[\\]|\\<[^>]*\\>)?\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
+    let match;
+    while ((match = methodRegex.exec(modifiedCode)) !== null) {
+      const methodName = match[1];
+      const paramStr = match[2];
+      
+      if (classNames.includes(methodName) || ['if', 'while', 'for', 'switch'].includes(methodName)) {
+        methodRegex.lastIndex = match.index + match[0].length;
+        continue;
+      }
+      
+      const bodyInfo = extractMethodBody(modifiedCode, match.index);
+      if (bodyInfo) {
+        let body = bodyInfo.body;
+        let cleanedParams = [];
+        
+        if (paramStr.trim()) {
+          const params = paramStr.split(',').map(p => {
+             const parts = p.trim().split(/\s+/);
+             return parts[parts.length - 1];
+          });
+          params.forEach(p => {
+            if (p === 'args' || p === '') {
+               if(p) cleanedParams.push(p);
+               return;
+            }
+            const pRegex = new RegExp(`(?<!this\\.|\\.)\\b${p}\\b`, 'g');
+            body = body.replace(pRegex, `__p_${p}`);
+            cleanedParams.push(`__p_${p}`);
+          });
+        }
+        
+        const newMethod = `${methodName}(${cleanedParams.join(', ')}) {${body}}`;
+        modifiedCode = modifiedCode.substring(0, match.index) + newMethod + modifiedCode.substring(bodyInfo.closeIdx + 1);
+        methodRegex.lastIndex = match.index + newMethod.length;
+      }
+    }
+  });
+
+  return modifiedCode;
+};
+
+export const translateJavaToJs = (javaCode, inputStr) => {
+  let code = javaCode.replace(/\/\/ === RUNNER_SECTION_START ===/g, "__RUNNER_SECTION_START__");
+  code = code
     .replace(/\/\/.*$/gm, "") 
     .replace(/\/\*[\s\S]*?\*\//g, ""); 
+
+  code = code.replace(/@\w+/g, "");
 
   // Mask string literals
   const stringLiterals = [];
@@ -325,8 +429,8 @@ const translateJavaToJs = (javaCode, inputStr) => {
   let classesCode = code;
   let mainBody = "";
 
-  if (code.includes("// === RUNNER_SECTION_START ===")) {
-    const parts = code.split("// === RUNNER_SECTION_START ===");
+  if (code.includes("__RUNNER_SECTION_START__")) {
+    const parts = code.split("__RUNNER_SECTION_START__");
     classesCode = parts[0];
     const runnerCode = parts[1] || "";
     mainBody = extractMainMethodBodyFromRunner(runnerCode);
@@ -345,10 +449,13 @@ const translateJavaToJs = (javaCode, inputStr) => {
 
   const attributes = parseClassAttributes(code);
   
+  // Track extends
+  const extendsMap = {};
   code = code.replace(/\b(public\s+|abstract\s+)*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+[\w\s,]+)?/g, (match, modifiers, className, parentClass) => {
     let res = `class ${className}`;
     if (parentClass) {
       res += ` extends ${parentClass}`;
+      extendsMap[className] = true;
     }
     return res;
   });
@@ -362,16 +469,6 @@ const translateJavaToJs = (javaCode, inputStr) => {
     classNames.push(match[1]);
   }
 
-  classNames.forEach(className => {
-    const constrRegex = new RegExp(`\\b(?:public|private|protected|internal)?\\s*${className}\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
-    code = code.replace(constrRegex, (match, paramStr) => {
-      const cleaned = cleanParamTypes(paramStr);
-      return `constructor(${cleaned}) {`;
-    });
-  });
-
-  code = code.replace(/\b(public|private|protected|final|abstract|synchronized|transient|volatile)\b/g, "");
-
   const types = [
     'int', 'double', 'float', 'boolean', 'char', 'String', 'auto', 
     'void', 'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Object',
@@ -380,18 +477,14 @@ const translateJavaToJs = (javaCode, inputStr) => {
   ];
   const allTypes = [...types, ...classNames];
   
+  code = processMethodsAndConstructors(code, classNames, allTypes, extendsMap);
+
+  code = code.replace(/\b(public|private|protected|final|abstract|synchronized|transient|volatile)\b/g, "");
+
   const varDeclRegex = /\b([A-Z][a-zA-Z0-9_]*|int|double|float|boolean|char|byte|short|long|void)(?:<[a-zA-Z0-9_,\s<>?]*>)?(?:\[\])?\s+([a-zA-Z_][a-zA-Z0-9_]*)\b(?!\s*\()(?=\s*=[^=]|\s*;|\s*,)/g;
   
   code = code.replace(varDeclRegex, 'let $2');
   finalMainBody = finalMainBody.replace(varDeclRegex, 'let $2');
-
-  allTypes.concat(['void']).forEach(type => {
-    const methodRegex = new RegExp(`\\b${type}(?:\\[\\])?\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
-    code = code.replace(methodRegex, (match, methodName, paramStr) => {
-      const cleaned = cleanParamTypes(paramStr);
-      return `${methodName}(${cleaned}) {`;
-    });
-  });
 
   // Strip let declarations of attributes inside class body
   attributes.forEach(attr => {
@@ -420,6 +513,9 @@ const translateJavaToJs = (javaCode, inputStr) => {
   code = code.replace(/\be\.getMessage\(\)/g, "e.message");
   code = code.replace(/new\s+Scanner\s*\([^)]*\)/g, "null");
   code = code.replace(/\b[a-zA-Z0-9_]+\.(?:nextInt|nextDouble|next|nextLine)\(\)/g, "readInput()");
+
+  // Cleanup duplicate super() injected by extends logic if the user already wrote super()
+  code = code.replace(/super\(\);\s*super\(/g, "super(");
 
   let js = `
     const stdout = [];
@@ -554,9 +650,12 @@ export const translateCppToJsAsync = (cppCode) => {
 };
 
 export const translateJavaToJsAsync = (javaCode) => {
-  let code = javaCode
+  let code = javaCode.replace(/\/\/ === RUNNER_SECTION_START ===/g, "__RUNNER_SECTION_START__");
+  code = code
     .replace(/\/\/.*$/gm, "") 
     .replace(/\/\*[\s\S]*?\*\//g, ""); 
+
+  code = code.replace(/@\w+/g, "");
 
   const stringLiterals = [];
   code = code.replace(/"(\\.|[^"\\])*"/g, (match) => {
@@ -571,8 +670,8 @@ export const translateJavaToJsAsync = (javaCode) => {
   let classesCode = code;
   let mainBody = "";
 
-  if (code.includes("// === RUNNER_SECTION_START ===")) {
-    const parts = code.split("// === RUNNER_SECTION_START ===");
+  if (code.includes("__RUNNER_SECTION_START__")) {
+    const parts = code.split("__RUNNER_SECTION_START__");
     classesCode = parts[0];
     const runnerCode = parts[1] || "";
     mainBody = extractMainMethodBodyFromRunner(runnerCode);
@@ -589,10 +688,12 @@ export const translateJavaToJsAsync = (javaCode) => {
 
   const attributes = parseClassAttributes(code);
   
+  const extendsMapAsync = {};
   code = code.replace(/\b(public\s+|abstract\s+)*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+[\w\s,]+)?/g, (match, modifiers, className, parentClass) => {
     let res = `class ${className}`;
     if (parentClass) {
       res += ` extends ${parentClass}`;
+      extendsMapAsync[className] = true;
     }
     return res;
   });
@@ -606,16 +707,6 @@ export const translateJavaToJsAsync = (javaCode) => {
     classNames.push(match[1]);
   }
 
-  classNames.forEach(className => {
-    const constrRegex = new RegExp(`\\b(?:public|private|protected|internal)?\\s*${className}\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
-    code = code.replace(constrRegex, (match, paramStr) => {
-      const cleaned = cleanParamTypes(paramStr);
-      return `constructor(${cleaned}) {`;
-    });
-  });
-
-  code = code.replace(/\b(public|private|protected|final|abstract|synchronized|transient|volatile)\b/g, "");
-
   const types = [
     'int', 'double', 'float', 'boolean', 'char', 'String', 'auto', 
     'void', 'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Object',
@@ -624,18 +715,14 @@ export const translateJavaToJsAsync = (javaCode) => {
   ];
   const allTypes = [...types, ...classNames];
   
+  code = processMethodsAndConstructors(code, classNames, allTypes, extendsMapAsync);
+
+  code = code.replace(/\b(public|private|protected|final|abstract|synchronized|transient|volatile)\b/g, "");
+
   const varDeclRegex = /\b([A-Z][a-zA-Z0-9_]*|int|double|float|boolean|char|byte|short|long|void)(?:<[a-zA-Z0-9_,\s<>?]*>)?(?:\[\])?\s+([a-zA-Z_][a-zA-Z0-9_]*)\b(?!\s*\()(?=\s*=[^=]|\s*;|\s*,)/g;
   
   code = code.replace(varDeclRegex, 'let $2');
   finalMainBody = finalMainBody.replace(varDeclRegex, 'let $2');
-
-  allTypes.concat(['void']).forEach(type => {
-    const methodRegex = new RegExp(`\\b${type}(?:\\[\\])?\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
-    code = code.replace(methodRegex, (match, methodName, paramStr) => {
-      const cleaned = cleanParamTypes(paramStr);
-      return `${methodName}(${cleaned}) {`;
-    });
-  });
 
   attributes.forEach(attr => {
     const letDeclRegex = new RegExp(`\\blet\\s+${attr}\\s*;`, 'g');
@@ -660,6 +747,9 @@ export const translateJavaToJsAsync = (javaCode) => {
   code = code.replace(/\be\.getMessage\(\)/g, "e.message");
   code = code.replace(/new\s+Scanner\s*\([^)]*\)/g, "null");
   code = code.replace(/\b[a-zA-Z0-9_]+\.(?:nextInt|nextDouble|next|nextLine)\(\)/g, "await readInput()");
+
+  // Cleanup duplicate super() injected by extends logic if the user already wrote super()
+  code = code.replace(/super\(\);\s*super\(/g, "super(");
 
   let js = `
     const readInput = async () => {
@@ -1657,7 +1747,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
           backdropFilter: 'blur(20px)',
           border: '1px solid var(--divider)',
           boxShadow: 'var(--shadow-card)',
-          maxHeight: '95vh',
+          maxHeight: '98vh',
           width: '95vw',
           overflow: 'hidden'
         }
@@ -1739,7 +1829,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 overflow: 'hidden',
                 border: theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
                 backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#fffffe',
-                height: '380px',
+                height: '480px',
                 width: '100%',
                 boxShadow: '0 4px 25px rgba(0,0,0,0.15)'
               }}>
@@ -1780,7 +1870,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                   color: '#3DDC97',
                   whiteSpace: 'pre-wrap',
                   overflowY: 'auto',
-                  height: '380px',
+                  height: '480px',
                   boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.5)',
                   display: 'flex',
                   flexDirection: 'column',
@@ -1849,7 +1939,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                     padding: '16px',
                     borderRadius: '14px',
                     border: '1px solid var(--code-border)',
-                    minHeight: '280px'
+                    minHeight: '380px'
                   }
                 }}
                 sx={{
@@ -1866,7 +1956,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
               <Paper
                 elevation={0}
                 style={{
-                  height: '320px',
+                  height: '450px',
                   padding: '20px',
                   backgroundColor: theme.palette.mode === 'dark' ? '#0A0C16' : '#FAFAFC',
                   borderRadius: '16px',
@@ -1928,14 +2018,14 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                   color: 'var(--primary-main)'
                 }}
               >
-                Download PNG
+                Download Flowchart
               </Button>
               <Button
                 variant="outlined"
                 onClick={handleGenerateFromCpp}
                 startIcon={<ResetIcon />}
                 style={{
-                  padding: '10px 20px',
+                  padding: '20px 20px',
                   borderRadius: '12px',
                   fontWeight: 800,
                   textTransform: 'none',
@@ -1943,7 +2033,6 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                   color: 'var(--primary-main)'
                 }}
               >
-                Sync from C++
               </Button>
             </Box>
           </>

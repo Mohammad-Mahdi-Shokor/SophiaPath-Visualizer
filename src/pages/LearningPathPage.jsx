@@ -1,8 +1,4 @@
-import React, { useMemo, useEffect, useState, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { CppPlaygroundDialog } from '../components/CppPlaygroundDialog';
-import { JavaOopUmlPlayground } from '../components/JavaOopUmlPlayground';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -21,30 +17,42 @@ import {
 import {
   School as SchoolIcon,
   CheckCircle as CheckCircleIcon,
-  Timeline as TimelineIcon,
-  EmojiEvents as TrophyIcon,
-  ArrowForward as ArrowForwardIcon,
   Lock as LockIcon,
-  PlayArrow as PlayIcon,
+  ArrowForward as ArrowForwardIcon,
   ChevronRight as ChevronRightIcon,
   MenuBook as BookIcon,
   Close as CloseIcon,
   FitnessCenter as ExerciseIcon,
   SportsEsports as AssessmentIcon,
   Check as CheckIcon,
-  ArrowUpward as ArrowUpwardIcon,
-  ArrowDownward as ArrowDownwardIcon,
-  Terminal as TerminalIcon
+  DarkMode as DarkModeIcon,
+  LightMode as LightModeIcon,
+  Code as CodeIcon,
+  Terminal as TerminalIcon,
 } from '@mui/icons-material';
-import { loadCourseFile, normalizeCourse, findCourseByIdOrSlug } from '../utils/courseData.js';
 
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { loadCourses } from '../data/courses';
+import { useTheme as useAppTheme } from '../context/ThemeContext';
+import { CppPlaygroundDialog } from '../components/CppPlaygroundDialog';
+import { JavaOopUmlPlayground } from '../components/JavaOopUmlPlayground';
 import './LearningPathPage.css';
 
-const getNodeIcon = (node) => {
-  if (node.status === 'upcoming') {
-    return <LockIcon sx={{ fontSize: 24 }} />;
-  }
+const STORAGE_KEY = 'sophia_learning_progress';
 
+function loadProgress() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveProgress(progress) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+}
+
+const getNodeIcon = (node) => {
   const cat = node.category?.toLowerCase() || 'learning';
   if (cat === 'exercise' || cat === 'quiz' || cat === 'mcq') {
     return <ExerciseIcon sx={{ fontSize: 28 }} />;
@@ -56,338 +64,155 @@ const getNodeIcon = (node) => {
 };
 
 const LearningPathPage = () => {
-  const courseId = '2';
+  const { courseId, sectionId } = useParams();
   const theme = useTheme();
+  const { isDarkMode, toggleTheme } = useAppTheme();
   const isMobileViewport = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [isCompilerOpen, setIsCompilerOpen] = useState(false);
-  const [isJavaUmlPlaygroundOpen, setIsJavaUmlPlaygroundOpen] = useState(false);
-
   const [course, setCourse] = useState(null);
   const [courseLoading, setCourseLoading] = useState(true);
-  const [backendLessons, setBackendLessons] = useState({});
-  const [loadingLessons, setLoadingLessons] = useState(false);
-  const [quizScores, setQuizScores] = useState({});
+  const [activeSectionIndex, setActiveSectionIndex] = useState(0);
+  const [hasInitialSectionBeenSet, setHasInitialSectionBeenSet] = useState(false);
+  const [progress, setProgress] = useState(loadProgress());
 
-  const updateQuizScore = useCallback((lessonId, percentage) => {
-    setQuizScores(prev => ({
-      ...prev,
-      [lessonId]: Math.max(prev[lessonId] || 0, percentage)
-    }));
-  }, []);
-
-  // Roadmap Preview Popover & Dialog State
+  // Preview popover/dialog state
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
 
-  // FAB scrolling states
-  const [showScrollArrow, setShowScrollArrow] = useState(false);
-  const [scrollDirection, setScrollDirection] = useState('up');
+  // Playground dialog states
+  const [cppPlaygroundOpen, setCppPlaygroundOpen] = useState(false);
+  const [javaPlaygroundOpen, setJavaPlaygroundOpen] = useState(false);
 
-  // Dynamic course loading from the visualizer's local info.csv file
+  // Load course from info.csv
   useEffect(() => {
-    const loadCourse = async () => {
+    const loadCourseData = async () => {
+      setCourseLoading(true);
       try {
-        if (location.state?.course) {
-          setCourse(location.state.course);
-        } else {
-          const rawCourses = await loadCourseFile();
-          const matched = findCourseByIdOrSlug(rawCourses, courseId);
-          setCourse(matched ? normalizeCourse(matched) : null);
+        const courses = await loadCourses();
+        if (courses.length > 0) {
+          setCourse(courses[0]); // Use first course from info.csv
         }
       } catch (err) {
-        console.error('Failed to load course path from info.csv:', err);
-        setCourse(null);
+        console.error('Failed to load course:', err);
       } finally {
         setCourseLoading(false);
       }
     };
-
-    loadCourse();
-  }, [courseId, location.state]);
-
-  const [activeSectionIndex, setActiveSectionIndex] = useState(0);
-  const [hasInitialSectionBeenSet, setHasInitialSectionBeenSet] = useState(false);
-
-
-
-  const domainKey = course ? course.id : 'unknown';
-
-  const scores = useMemo(() => quizScores, [quizScores]);
+    loadCourseData();
+  }, []);
 
   const sections = useMemo(() => {
     if (!course || !course.sections) return [];
-
-    return course.sections.map((section, sIndex) => {
-      const currentLessons = backendLessons[section.id] || section.lessons || [];
-
-      // Title-based deduplication for section lessons progress calculation
-      const uniqueLessons = [];
-      const seenTitles = new Set();
-      currentLessons.forEach(l => {
-        const norm = (l.title || '').trim().toLowerCase();
-        if (norm && !seenTitles.has(norm)) {
-          seenTitles.add(norm);
-          uniqueLessons.push(l);
-        }
+    return course.sections.map((section) => {
+      const allLessons = section.lessons || [];
+      const coreLessons = allLessons.filter(l => {
+        const title = (l.title || '').trim().toLowerCase();
+        const cat = (l.category || '').trim().toLowerCase();
+        return !(title.startsWith('cheatsheet:') || title.startsWith('cheatsheet ') || title === 'cheatsheet' || cat === 'cheatsheet');
       });
-
-      const completedLessons = uniqueLessons.filter(l => {
-        const duplicates = currentLessons.filter(dl => (dl.title || '').trim().toLowerCase() === (l.title || '').trim().toLowerCase());
-        return duplicates.some(dl => (scores[dl.id] || 0) >= 70);
-      });
-
-      const isComplete = uniqueLessons.length > 0 && completedLessons.length === uniqueLessons.length;
-
-      let isUnlocked = true; // unlock all sections and let learners access any section immediately
+      const completedLessons = coreLessons.filter(l => (progress[l.id] || 0) >= 70);
+      const isComplete = coreLessons.length > 0 && completedLessons.length === coreLessons.length;
 
       return {
         ...section,
+        lessons: allLessons, // Keep all lessons so cheatsheet button works
         isComplete,
-        isUnlocked,
-        progress: uniqueLessons.length > 0 ? (completedLessons.length / uniqueLessons.length) * 100 : 0
+        isUnlocked: true,
+        progressPercent: coreLessons.length > 0 ? (completedLessons.length / coreLessons.length) * 100 : 0
       };
     });
-  }, [course, scores, backendLessons]);
+  }, [course, progress]);
 
-  // Automatically select and open the first incomplete section when accessing the page or returning
+  // Auto-select section based on URL params, or fall back to first incomplete section
   useEffect(() => {
     if (sections.length > 0 && !hasInitialSectionBeenSet) {
-      if (location.state?.quizResult) {
-        const { lessonId } = location.state.quizResult;
-        const sectionIdx = sections.findIndex(s =>
-          s.lessons?.some(l => l.id === lessonId)
-        );
-        if (sectionIdx !== -1) {
-          setActiveSectionIndex(sectionIdx);
-          setHasInitialSectionBeenSet(true);
-          return;
+      if (sectionId) {
+        const sectionIndex = sections.findIndex(s => String(s.id) === String(sectionId));
+        if (sectionIndex !== -1) {
+          setActiveSectionIndex(sectionIndex);
+        } else {
+          const firstIncompleteIdx = sections.findIndex(s => !s.isComplete);
+          setActiveSectionIndex(firstIncompleteIdx !== -1 ? firstIncompleteIdx : 0);
         }
-      }
-
-      const firstIncompleteIdx = sections.findIndex(s => !s.isComplete);
-      if (firstIncompleteIdx !== -1) {
-        setActiveSectionIndex(firstIncompleteIdx);
       } else {
-        setActiveSectionIndex(0);
+        const firstIncompleteIdx = sections.findIndex(s => !s.isComplete);
+        setActiveSectionIndex(firstIncompleteIdx !== -1 ? firstIncompleteIdx : 0);
       }
       setHasInitialSectionBeenSet(true);
     }
-  }, [sections, location.state, hasInitialSectionBeenSet]);
+  }, [sections, sectionId, hasInitialSectionBeenSet]);
 
   const activeSection = sections[activeSectionIndex];
 
-  // Lessons are already present in info.csv, so no backend section fetch is needed.
+  // Scroll to returned lesson if applicable
   useEffect(() => {
-    setBackendLessons({});
-    setLoadingLessons(false);
-  }, [course, activeSectionIndex]);
-
-  const cheatsheetLesson = useMemo(() => {
-    let rawLessons = [];
-    if (activeSection && backendLessons[activeSection.id] && backendLessons[activeSection.id].length > 0) {
-      rawLessons = backendLessons[activeSection.id];
-    } else {
-      rawLessons = activeSection?.lessons || [];
+    if (location.state?.returnedFromLessonId && !courseLoading && sections.length > 0) {
+      const lessonId = location.state.returnedFromLessonId;
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`node-${lessonId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 350);
+      return () => clearTimeout(timer);
     }
-    return rawLessons.find(l => {
-      const title = (l.title || '').trim().toLowerCase();
-      return title.startsWith('cheatsheet:') || title.startsWith('cheatsheet ') || title === 'cheatsheet';
-    });
-  }, [activeSection, backendLessons]);
-
-  const isComputerScience = useMemo(() => {
-    return course?.title?.toLowerCase()?.includes('computer science') || String(course?.id) === '2';
-  }, [course]);
+  }, [location.state, courseLoading, sections, activeSectionIndex]);
 
   const lessons = useMemo(() => {
-    let rawLessons = [];
-    if (activeSection && backendLessons[activeSection.id] && backendLessons[activeSection.id].length > 0) {
-      rawLessons = backendLessons[activeSection.id];
-    } else {
-      rawLessons = activeSection?.lessons || [];
-    }
-
-    // Filter out cheatsheet lessons
-    rawLessons = rawLessons.filter(l => {
+    const allLessons = activeSection?.lessons || [];
+    return allLessons.filter(l => {
       const title = (l.title || '').trim().toLowerCase();
-      return !(title.startsWith('cheatsheet:') || title.startsWith('cheatsheet ') || title === 'cheatsheet');
+      const cat = (l.category || '').trim().toLowerCase();
+      return !(title.startsWith('cheatsheet:') || title.startsWith('cheatsheet ') || title === 'cheatsheet' || cat === 'cheatsheet');
     });
-
-    // Title-based deduplication for nodes path list
-    const uniqueLessons = [];
-    const seenTitles = new Set();
-    rawLessons.forEach(les => {
-      const norm = (les.title || '').trim().toLowerCase();
-      if (norm && !seenTitles.has(norm)) {
-        seenTitles.add(norm);
-        uniqueLessons.push(les);
-      }
-    });
-
-    return uniqueLessons;
-  }, [activeSection, backendLessons]);
-
-  const csvCppCode = useMemo(() => {
-    if (!course?.codeIndex?.cppSnippets?.length) return null;
-    // Use the first runnable C++ snippet found in the course
-    return course.codeIndex.cppSnippets[0] || null;
-  }, [course]);
-
-  const csvJavaExamples = useMemo(() => {
-    if (!course?.codeIndex?.javaSnippets?.length) return [];
-    // Return up to 3 Java code snippets from info.csv as examples
-    return course.codeIndex.javaSnippets.slice(0, 3).map((code, idx) => ({
-      name: `Java Example ${idx + 1} (from course)`,
-      code,
-      mainCode: null,
-    }));
-  }, [course]);
-
-  const activeSectionCppCode = useMemo(() => {
-    if (!activeSection?.lessons) return null;
-    for (const lesson of activeSection.lessons) {
-      const cppSnippet = (lesson.codeSnippets || []).find(s => s.language === 'cpp' && s.runnable);
-      if (cppSnippet) return cppSnippet.code;
-    }
-    return null;
   }, [activeSection]);
 
-  const activeSectionJavaExamples = useMemo(() => {
-    if (!activeSection?.lessons) return [];
-    const examples = [];
-    for (const lesson of activeSection.lessons) {
-      const javaSnips = (lesson.codeSnippets || []).filter(s => s.language === 'java');
-      for (const snip of javaSnips) {
-        examples.push({
-          name: `${lesson.title} - Java Snippet`,
-          code: snip.code,
-          mainCode: null,
-        });
-      }
-    }
-    return examples.slice(0, 5);
+  const cheatsheetLesson = useMemo(() => {
+    return activeSection?.lessons?.find(l => {
+      const title = (l.title || '').trim().toLowerCase();
+      const cat = (l.category || '').trim().toLowerCase();
+      return title.startsWith('cheatsheet:') || title.startsWith('cheatsheet ') || title === 'cheatsheet' || cat === 'cheatsheet';
+    }) || null;
   }, [activeSection]);
-
-  const playgroundCppCode = activeSectionCppCode || csvCppCode || null;
-  const playgroundJavaExamples = activeSectionJavaExamples.length > 0
-    ? activeSectionJavaExamples
-    : csvJavaExamples;
-
-  // Sync results from QuizPage if any
-  useEffect(() => {
-    if (location.state?.quizResult) {
-      const { lessonId, percentage } = location.state.quizResult;
-      updateQuizScore(lessonId, percentage);
-    }
-  }, [location.state, updateQuizScore]);
 
   const nodes = useMemo(() => {
-    const rawList = (activeSection && backendLessons[activeSection.id]) || activeSection?.lessons || [];
     let currentY = 0;
-
     return lessons.map((lesson, index) => {
-      // Find all database duplicates of this unique lesson title
-      const duplicates = rawList.filter(dl => (dl.title || '').trim().toLowerCase() === (lesson.title || '').trim().toLowerCase());
-
-      // Consolidate the highest score among duplicates
-      let score = 0;
-      duplicates.forEach(dl => {
-        const s = scores[dl.id] || 0;
-        if (s > score) score = s;
-      });
-
+      const score = progress[lesson.id] || 0;
       const isPassed = score >= 70;
-      const status = isPassed ? 'completed' : 'active';
 
-      // Group and calculate dynamic height gap for new chapters
-      const rawChapter = lesson.chapterName || 'General';
-      const chapterName = rawChapter.trim().length > 0 ? rawChapter.trim() : 'General';
+      let status = 'active';
+      if (isPassed) status = 'completed';
+
+      const chapterName = (lesson.chapterName || 'General').trim() || 'General';
 
       let isNewChapter = false;
       if (index === 0) {
         isNewChapter = true;
       } else {
-        const prevRawChapter = lessons[index - 1].chapterName || 'General';
-        const prevChapterName = prevRawChapter.trim().length > 0 ? prevRawChapter.trim() : 'General';
-        if (chapterName !== prevChapterName) {
+        const prevChapter = (lessons[index - 1].chapterName || 'General').trim() || 'General';
+        if (chapterName !== prevChapter) {
           isNewChapter = true;
         }
       }
 
       currentY += index === 0 ? 160 : (isNewChapter ? 360 : 150);
 
-      const x = index % 2 === 0 ? 45 : 255; // Larger horizontal zigzag within 300px visual container
-      const y = currentY;
-      const category = lesson.category || 'learning';
+      const x = index % 2 === 0 ? 45 : 255;
 
       return {
         ...lesson,
         chapterName,
         isNewChapter,
-        category,
         status,
         score,
-        pos: { x, y },
-        icon: category === 'learning' ? <BookIcon /> : <SchoolIcon />
+        pos: { x, y: currentY },
       };
     });
-  }, [lessons, scores, activeSection, backendLessons]);
-
-  // 1. Automatically scroll to the current/active node shell when course or lessons finish loading
-  useEffect(() => {
-    if (nodes.length > 0 && !courseLoading && !loadingLessons) {
-      const timer = setTimeout(() => {
-        const activeNodeEl = document.getElementById('current-active-node-shell');
-        if (activeNodeEl) {
-          activeNodeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 350);
-      return () => clearTimeout(timer);
-    }
-  }, [nodes, courseLoading, loadingLessons]);
-
-  // 2. Track viewport scrolling to toggle the fixed "Go to Current" FAB arrow
-  useEffect(() => {
-    const handleScroll = () => {
-      const activeNodeEl = document.getElementById('current-active-node-shell');
-      if (!activeNodeEl) {
-        setShowScrollArrow(false);
-        return;
-      }
-
-      const rect = activeNodeEl.getBoundingClientRect();
-      // Element is visible if it is fully or partially within the vertical viewport bounds
-      const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
-
-      setShowScrollArrow(!isVisible);
-
-      if (rect.top < 0) {
-        setScrollDirection('up');
-      } else if (rect.top > window.innerHeight) {
-        setScrollDirection('down');
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    // Initial check
-    const initialTimer = setTimeout(handleScroll, 400);
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      clearTimeout(initialTimer);
-    };
-  }, [nodes, courseLoading, loadingLessons]);
-
-  const handleScrollToActive = () => {
-    const activeNodeEl = document.getElementById('current-active-node-shell');
-    if (activeNodeEl) {
-      activeNodeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  };
+  }, [lessons, progress]);
 
   const pathHeight = useMemo(() => {
     if (nodes.length === 0) return 300;
@@ -411,12 +236,8 @@ const LearningPathPage = () => {
     return d;
   };
 
-  // Click handler: opens preview box instead of immediate navigation
   const handleNodeClick = (event, node) => {
-    if (node.status === 'upcoming') return;
     setSelectedNode(node);
-
-    // Check viewport width for adaptive UX
     const isMobile = window.innerWidth < 768;
     if (isMobile) {
       setOpenDialog(true);
@@ -433,7 +254,8 @@ const LearningPathPage = () => {
 
   const handleStartLesson = () => {
     if (!selectedNode) return;
-    navigate(`/learning/${domainKey}/${activeSection.id}/${selectedNode.id}`, { state: { course } });
+    const sectionId = activeSection?.id;
+    navigate(`/learning/${course.id}/${sectionId}/${selectedNode.id}`);
     handleClosePreview();
   };
 
@@ -444,10 +266,9 @@ const LearningPathPage = () => {
     const buttonLabel = isCompleted ? 'RETAKE THE LESSON' : 'START THE LESSON';
     const categoryLabel = isCompleted ? 'COMPLETED LESSON' : (selectedNode.category === 'exercise' ? 'PRACTICE QUIZ' : 'ROADMAP LESSON');
 
-    // Premium dynamic description based on category/title
     const description = selectedNode.category === 'exercise'
       ? `Test your knowledge with a quiz on "${selectedNode.title}". Answer the questions to prove your mastery and earn points!`
-      : `Dive into "${selectedNode.title}" and learn key concepts in a step-by-step interactive slide viewer. Perfect for solidifying your fundamentals.`;
+      : `Dive into "${selectedNode.title}" and learn key concepts in a step-by-step interactive slide viewer.`;
 
     return (
       <Box style={{ position: 'relative' }}>
@@ -461,44 +282,25 @@ const LearningPathPage = () => {
         )}
         <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
           <Box style={{ flex: 1 }}>
-            <Typography
-              variant="caption"
-              style={{
-                color: accentColor,
-                fontWeight: 800,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                display: 'block',
-                marginBottom: '4px'
-              }}
-            >
+            <Typography variant="caption" style={{
+              color: accentColor, fontWeight: 800, letterSpacing: '0.12em',
+              textTransform: 'uppercase', display: 'block', marginBottom: '4px'
+            }}>
               {categoryLabel}
             </Typography>
-            <Typography
-              variant="h5"
-              style={{
-                fontWeight: 900,
-                fontSize: '1.25rem',
-                lineHeight: 1.3,
-                color: 'var(--text-primary)',
-                fontFamily: '"Outfit", sans-serif'
-              }}
-            >
+            <Typography variant="h5" style={{
+              fontWeight: 900, fontSize: '1.25rem', lineHeight: 1.3,
+              color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif'
+            }}>
               {selectedNode.title}
             </Typography>
           </Box>
-          <Box
-            style={{
-              width: '52px',
-              height: '52px',
-              borderRadius: '50%',
-              backgroundColor: isCompleted ? '#58CC02' : '#1CB0F6',
-              display: 'grid',
-              placeItems: 'center',
-              boxShadow: '0 8px 16px rgba(0,0,0,0.15)',
-              flexShrink: 0
-            }}
-          >
+          <Box style={{
+            width: '52px', height: '52px', borderRadius: '50%',
+            backgroundColor: isCompleted ? '#58CC02' : '#1CB0F6',
+            display: 'grid', placeItems: 'center',
+            boxShadow: '0 8px 16px rgba(0,0,0,0.15)', flexShrink: 0
+          }}>
             {selectedNode.category === 'exercise' || selectedNode.category === 'quiz' || selectedNode.category === 'mcq' ? (
               <ExerciseIcon style={{ color: '#fff', fontSize: '26px' }} />
             ) : selectedNode.category === 'assessment' || selectedNode.category === 'test' ? (
@@ -509,31 +311,20 @@ const LearningPathPage = () => {
           </Box>
         </Box>
 
-        <Typography
-          variant="body2"
-          style={{
-            marginTop: '16px',
-            color: 'var(--text-secondary)',
-            lineHeight: 1.5,
-            fontSize: '0.9rem'
-          }}
-        >
+        <Typography variant="body2" style={{
+          marginTop: '16px', color: 'var(--text-secondary)',
+          lineHeight: 1.5, fontSize: '0.9rem'
+        }}>
           {description}
         </Typography>
 
         {isCompleted && selectedNode.score > 0 && (
-          <Box
-            style={{
-              marginTop: '14px',
-              padding: '8px 12px',
-              backgroundColor: 'rgba(88, 204, 2, 0.1)',
-              border: '1px solid rgba(88, 204, 2, 0.2)',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-          >
+          <Box style={{
+            marginTop: '14px', padding: '8px 12px',
+            backgroundColor: 'rgba(88, 204, 2, 0.1)',
+            border: '1px solid rgba(88, 204, 2, 0.2)',
+            borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px'
+          }}>
             <CheckCircleIcon style={{ color: '#58CC02', fontSize: '18px' }} />
             <Typography variant="body2" style={{ color: '#58CC02', fontWeight: 700, fontSize: '0.85rem' }}>
               High Score: {selectedNode.score}%
@@ -541,30 +332,12 @@ const LearningPathPage = () => {
           </Box>
         )}
 
-        <Button
-          fullWidth
-          variant="contained"
-          onClick={handleStartLesson}
-          style={{
-            marginTop: '20px',
-            padding: '12px',
-            borderRadius: '14px',
-            fontWeight: 800,
-            fontSize: '0.9rem',
-            backgroundColor: accentColor,
-            color: '#fff',
-            boxShadow: `0 8px 20px ${isCompleted ? 'rgba(88,204,2,0.25)' : 'rgba(var(--primary-main-rgb), 0.25)'}`,
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-            fontFamily: '"Outfit", sans-serif',
-            textTransform: 'none'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
-        >
+        <Button fullWidth variant="contained" onClick={handleStartLesson} style={{
+          marginTop: '20px', padding: '12px', borderRadius: '14px',
+          fontWeight: 800, fontSize: '0.9rem', backgroundColor: accentColor,
+          color: '#fff', textTransform: 'none',
+          fontFamily: '"Outfit", sans-serif'
+        }}>
           {buttonLabel}
         </Button>
       </Box>
@@ -576,11 +349,7 @@ const LearningPathPage = () => {
       <div className="course-not-found" style={{ display: 'flex', flexDirection: 'column', gap: '20px', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <div className="loading-spinner" style={{ width: '50px', height: '50px', borderRadius: '50%', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary-main)', animation: 'spin 1s linear infinite' }} />
         <Typography variant="h6" style={{ color: 'var(--text-secondary)' }}>Loading Learning Path...</Typography>
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -588,8 +357,7 @@ const LearningPathPage = () => {
   if (!course) {
     return (
       <Box className="path-page-empty">
-        <Typography variant="h5">No course selected</Typography>
-        <Button onClick={() => navigate('/')}>Go to Dashboard</Button>
+        <Typography variant="h5">No course data found in info.csv</Typography>
       </Box>
     );
   }
@@ -599,80 +367,28 @@ const LearningPathPage = () => {
   return (
     <Box className="path-page">
       <Container maxWidth="md">
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, mt: 1, flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, mt: 1 }}>
           <Typography variant="h5" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
-            Course Roadmap
+            {course.title}
           </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'stretch' }}>
-            {isComputerScience && (
-              <>
-                <Button
-                  variant="contained"
-                  startIcon={<TerminalIcon />}
-                  onClick={() => setIsCompilerOpen(true)}
-                  style={{
-                    padding: '8px 18px',
-                    borderRadius: '12px',
-                    fontWeight: 800,
-                    fontSize: '0.85rem',
-                    textTransform: 'none',
-                    background: 'var(--hero-gradient)',
-                    color: '#fff',
-                    boxShadow: '0 6px 15px rgba(var(--primary-main-rgb), 0.25)',
-                    fontFamily: '"Outfit", sans-serif'
-                  }}
-                >
-                  C++ Compiler Playground
-                </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<SchoolIcon />}
-                  onClick={() => setIsJavaUmlPlaygroundOpen(true)}
-                  style={{
-                    padding: '8px 18px',
-                    borderRadius: '12px',
-                    fontWeight: 800,
-                    fontSize: '0.85rem',
-                    textTransform: 'none',
-                    background: 'linear-gradient(135deg, #6e8efb, #a777e3)',
-                    color: '#fff',
-                    boxShadow: '0 6px 15px rgba(167, 119, 227, 0.25)',
-                    fontFamily: '"Outfit", sans-serif'
-                  }}
-                >
-                  Java OOP UML Playground
-                </Button>
-              </>
-            )}
-            {cheatsheetLesson && (
-              <Button
-                variant="outlined"
-                startIcon={<BookIcon />}
-                onClick={() => {
-                  navigate(`/learning/${domainKey}/${activeSection.id}/${cheatsheetLesson.id}`, { state: { course } });
-                }}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '12px',
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                  textTransform: 'none',
-                  borderColor: 'var(--primary-main)',
-                  color: 'var(--primary-main)',
-                  boxShadow: '0 4px 10px rgba(var(--primary-main-rgb), 0.1)',
-                  fontFamily: '"Outfit", sans-serif'
-                }}
-              >
-                View Cheatsheet
-              </Button>
-            )}
-
-          </Box>
+          <IconButton
+            onClick={toggleTheme}
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: '12px',
+              background: 'var(--surface-glass)',
+              border: '1px solid var(--divider)',
+              color: 'var(--text-primary)',
+              '&:hover': { background: 'var(--action-hover)' },
+            }}
+            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
+          </IconButton>
         </Box>
 
-
-        <Box className="path-sections-tabs glass-panel" sx={{ mb: 4, borderRadius: 3 }}>
+        <Box className="path-sections-tabs glass-panel" sx={{ mb: 2, borderRadius: 3 }}>
           <Tabs
             value={activeSectionIndex}
             onChange={(e, val) => setActiveSectionIndex(val)}
@@ -694,6 +410,70 @@ const LearningPathPage = () => {
             ))}
           </Tabs>
         </Box>
+        
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', mb: 3 }}>
+          {cheatsheetLesson && (
+            <Button
+              variant="outlined"
+              startIcon={<BookIcon />}
+              onClick={() => {
+                const sectionId = activeSection?.id;
+                navigate(`/learning/${course.id}/${sectionId}/${cheatsheetLesson.id}`);
+              }}
+              sx={{
+                borderRadius: '12px',
+                fontWeight: 800,
+                fontSize: '0.8rem',
+                textTransform: 'none',
+                borderColor: 'var(--primary-main)',
+                color: 'var(--primary-main)',
+                '&:hover': { borderColor: 'var(--primary-main)', bgcolor: 'rgba(28,176,246,0.08)' },
+              }}
+            >
+              Cheatsheet
+            </Button>
+          )}
+          {activeSection?.title === 'C++' && (
+            <Button
+              variant="contained"
+              startIcon={<TerminalIcon />}
+              onClick={() => setCppPlaygroundOpen(true)}
+              sx={{
+                borderRadius: '12px',
+                fontWeight: 800,
+                fontSize: '0.8rem',
+                textTransform: 'none',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: '#fff',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5a6fd6 0%, #6a4192 100%)',
+                },
+              }}
+            >
+              C++ Playground
+            </Button>
+          )}
+          {activeSection?.title === 'OOP' && (
+            <Button
+              variant="contained"
+              startIcon={<CodeIcon />}
+              onClick={() => setJavaPlaygroundOpen(true)}
+              sx={{
+                borderRadius: '12px',
+                fontWeight: 800,
+                fontSize: '0.8rem',
+                textTransform: 'none',
+                background: 'linear-gradient(135deg, #FF9100 0%, #FF3D00 100%)',
+                color: '#fff',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #E68300 0%, #E63600 100%)',
+                },
+              }}
+            >
+              Java Playground
+            </Button>
+          )}
+        </Box>
 
         {!activeSection?.isUnlocked && (
           <Alert severity="warning" sx={{ mb: 4, borderRadius: 3 }}>
@@ -703,19 +483,13 @@ const LearningPathPage = () => {
 
         <Box className="path-visual-shell glass-panel-strong">
           <Box className="path-visual" style={{ height: `${pathHeight}px` }}>
-            <svg
-              width="300"
-              height={pathHeight}
-              className="path-svg"
-              viewBox={`0 0 300 ${pathHeight}`}
-            >
+            <svg width="300" height={pathHeight} className="path-svg" viewBox={`0 0 300 ${pathHeight}`}>
               <defs>
                 <linearGradient id="pathGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                   <stop offset="0%" stopColor={theme.palette.primary.main} stopOpacity="0.2" />
                   <stop offset="100%" stopColor={theme.palette.primary.main} stopOpacity="0.05" />
                 </linearGradient>
               </defs>
-
               <path
                 d={generatePath()}
                 fill="none"
@@ -729,114 +503,65 @@ const LearningPathPage = () => {
             {nodes.map((node, index) => (
               <React.Fragment key={node.id}>
                 {node.isNewChapter && (
-                  <Box
-                    style={{
-                      position: 'absolute',
-                      left: '150px',
-                      top: `${node.pos.y - (index === 0 ? 126 : 220)}px`,
-                      transform: 'translateX(-50%)',
-                      zIndex: 5,
-                      width: '1200px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      pointerEvents: 'none',
-                      gap: '24px'
-                    }}
-                  >
+                  <Box style={{
+                    position: 'absolute', left: '150px',
+                    top: `${node.pos.y - (index === 0 ? 126 : 220)}px`,
+                    transform: 'translateX(-50%)', zIndex: 5,
+                    width: '1200px', display: 'flex',
+                    flexDirection: 'column', alignItems: 'center',
+                    pointerEvents: 'none', gap: '24px'
+                  }}>
                     {index > 0 && (
                       <Box style={{ width: '100%', height: '0', borderTop: '3px dotted var(--text-secondary)', opacity: 0.4 }} />
                     )}
-                    <Typography
-                      variant="h5"
-                      style={{
-                        fontWeight: 900,
-                        color: 'var(--text-primary)',
-                        background: 'var(--surface-glass)',
-                        padding: '12px 32px',
-                        borderRadius: '30px',
-                        border: '1px solid var(--divider)',
-                        backdropFilter: 'blur(12px)',
-                        fontFamily: '"Outfit", sans-serif',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-                        textAlign: 'center',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1.5px',
-                        fontSize: '1.35rem'
-                      }}
-                    >
+                    <Typography variant="h5" style={{
+                      fontWeight: 900, color: 'var(--text-primary)',
+                      background: 'var(--surface-glass)', padding: '12px 32px',
+                      borderRadius: '30px', border: '1px solid var(--divider)',
+                      backdropFilter: 'blur(12px)', fontFamily: '"Outfit", sans-serif',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.1)', textAlign: 'center',
+                      textTransform: 'uppercase', letterSpacing: '1.5px', fontSize: '1.35rem'
+                    }}>
                       {node.chapterName}
                     </Typography>
                   </Box>
                 )}
 
-
-                <Box
-                  id={node.id === nextActiveNode?.id ? "current-active-node-shell" : undefined}
-                  className="path-node-shell"
-                  style={{
-                    left: `${node.pos.x}px`,
-                    top: `${node.pos.y}px`,
-                    transform: 'translate(-50%, -50%)'
-                  }}
-                  onClick={(e) => handleNodeClick(e, node)}
-                >
+                <Box id={`node-${node.id}`} className="path-node-shell" style={{
+                  left: `${node.pos.x}px`, top: `${node.pos.y}px`,
+                  transform: 'translate(-50%, -50%)'
+                }} onClick={(e) => handleNodeClick(e, node)}>
                   <Box className="path-node-wrapper">
-                    {node.status === 'active' && (
-                      <Box className="path-node-pulse" />
-                    )}
-
                     <Box className={`path-node path-node-${node.status}`}>
                       {getNodeIcon(node)}
                     </Box>
 
-                    {/* Top-right completed check badge matching mobile app */}
                     {node.status === 'completed' && (
-                      <Box
-                        style={{
-                          position: 'absolute',
-                          top: '-4px',
-                          right: '-4px',
-                          width: '22px',
-                          height: '22px',
-                          borderRadius: '50%',
-                          backgroundColor: '#fff',
-                          border: '2.5px solid #29c57b',
-                          display: 'grid',
-                          placeItems: 'center',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-                          zIndex: 10
-                        }}
-                      >
+                      <Box style={{
+                        position: 'absolute', top: '-4px', right: '-4px',
+                        width: '22px', height: '22px', borderRadius: '50%',
+                        backgroundColor: '#fff', border: '2.5px solid #29c57b',
+                        display: 'grid', placeItems: 'center',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.2)', zIndex: 10
+                      }}>
                         <CheckIcon style={{ color: '#29c57b', fontSize: '12px', fontWeight: 'bold' }} />
                       </Box>
                     )}
 
-                    {/* Bottom percentage badge matching mobile app */}
                     {node.status === 'completed' && node.score > 0 && (
-                      <Box
-                        style={{
-                          position: 'absolute',
-                          bottom: '-8px',
-                          left: '50%',
-                          transform: 'translateX(-50%)',
-                          padding: '2px 8px',
-                          borderRadius: '10px',
-                          backgroundColor: node.score < 50 ? '#ff4d4d' : node.score < 80 ? '#ff9900' : '#29c57b',
-                          border: '1.5px solid #fff',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-                          zIndex: 10
-                        }}
-                      >
-                        <Typography
-                          style={{
-                            color: '#fff',
-                            fontWeight: 900,
-                            fontSize: '0.68rem',
-                            lineHeight: 1,
-                            fontFamily: '"Nunito", sans-serif'
-                          }}
-                        >
+                      <Box style={{
+                        position: 'absolute', bottom: '-8px', left: '50%',
+                        transform: 'translateX(-50%)', padding: '2px 8px',
+                        borderRadius: '10px',
+                        backgroundColor: node.score < 50 ? '#ff4d4d' : node.score < 80 ? '#ff9900' : '#29c57b',
+                        border: '1.5px solid #fff',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.2)', zIndex: 10
+                      }}>
+                        <Typography style={{
+                          color: '#fff', fontWeight: 900,
+                          fontSize: '0.68rem', lineHeight: 1,
+                          fontFamily: '"Nunito", sans-serif'
+                        }}>
                           {node.score}%
                         </Typography>
                       </Box>
@@ -860,7 +585,7 @@ const LearningPathPage = () => {
             <div className="path-footer-copy">
               {activeSection?.isComplete
                 ? `You've mastered all lessons in ${activeSection.title}.`
-                : `Progress in this section: ${Math.round(activeSection?.progress || 0)}%`}
+                : `Progress in this section: ${Math.round(activeSection?.progressPercent || 0)}%`}
             </div>
             {!activeSection?.isComplete && (
               <Button
@@ -887,24 +612,15 @@ const LearningPathPage = () => {
           </Box>
         </Box>
 
-        {/* Roadmap Node Preview - Desktop Floating Popover */}
         <Popover
           open={Boolean(anchorEl) && !isMobileViewport}
           anchorEl={anchorEl}
           onClose={handleClosePreview}
-          anchorOrigin={{
-            vertical: 'center',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'center',
-            horizontal: 'left',
-          }}
+          anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'center', horizontal: 'left' }}
           PaperProps={{
             style: {
-              borderRadius: '24px',
-              padding: '24px',
-              width: '320px',
+              borderRadius: '24px', padding: '24px', width: '320px',
               border: selectedNode?.status === 'completed'
                 ? '2px solid rgba(88, 204, 2, 0.4)'
                 : '1px solid var(--divider)',
@@ -920,7 +636,6 @@ const LearningPathPage = () => {
           {renderPreviewContent()}
         </Popover>
 
-        {/* Roadmap Node Preview - Mobile Centered Dialog */}
         <Dialog
           open={openDialog && isMobileViewport}
           onClose={handleClosePreview}
@@ -928,8 +643,7 @@ const LearningPathPage = () => {
           maxWidth="xs"
           PaperProps={{
             style: {
-              borderRadius: '24px',
-              padding: '24px',
+              borderRadius: '24px', padding: '24px',
               border: selectedNode?.status === 'completed'
                 ? '2px solid rgba(88, 204, 2, 0.4)'
                 : '1px solid var(--divider)',
@@ -943,28 +657,16 @@ const LearningPathPage = () => {
         >
           {renderPreviewContent()}
         </Dialog>
-
       </Container>
-      {showScrollArrow && createPortal(
-        <IconButton
-          className="path-floating-action-btn"
-          onClick={handleScrollToActive}
-          aria-label="scroll to current lesson"
-        >
-          {scrollDirection === 'up' ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />}
-        </IconButton>,
-        document.body
-      )}
 
+      {/* Playground Dialogs */}
       <CppPlaygroundDialog
-        open={isCompilerOpen}
-        onClose={() => setIsCompilerOpen(false)}
-        initialCode={playgroundCppCode}
+        open={cppPlaygroundOpen}
+        onClose={() => setCppPlaygroundOpen(false)}
       />
       <JavaOopUmlPlayground
-        open={isJavaUmlPlaygroundOpen}
-        onClose={() => setIsJavaUmlPlaygroundOpen(false)}
-        csvExamples={playgroundJavaExamples}
+        open={javaPlaygroundOpen}
+        onClose={() => setJavaPlaygroundOpen(false)}
       />
     </Box>
   );

@@ -344,6 +344,7 @@
   box-shadow: var(--shadow-glow);
 }
 
+
 @media (max-width: 600px) {
   .learning-slide-paper {
     padding: 1.5rem;
@@ -517,4 +518,258 @@
 
 .hello-world-line-code {
   font-family: 'Roboto Mono', monospace;
+  font-size: 0.88rem;
+  flex-grow: 1;
 }
+
+/* LAN Diagram Topology */
+.lan-topology-board {
+  position: relative;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 28px;
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  padding: 2rem;
+  margin: 1.5rem 0;
+}
+
+.lan-nodes-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  justify-items: center;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+
+@media (max-width: 768px) {
+  .lan-nodes-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
+}
+
+.lan-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.15rem 0.75rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
+  max-width: 135px;
+  cursor: pointer;
+  transition: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+}
+
+.lan-node:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--primary-main);
+  box-shadow: 0 8px 24px rgba(28, 176, 246, 0.25);
+}
+
+.lan-node.active {
+  border-color: var(--success-main);
+  background: rgba(76, 175, 80, 0.12);
+  box-shadow: 0 0 25px rgba(76, 175, 80, 0.25);
+}
+
+.lan-node-icon-wrapper {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  margin-bottom: 0.65rem;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.lan-node:hover .lan-node-icon-wrapper {
+  background: rgba(28, 176, 246, 0.15);
+  color: var(--primary-main);
+}
+
+.lan-node.active .lan-node-icon-wrapper {
+  background: rgba(76, 175, 80, 0.2);
+  color: var(--success-main);
+}
+
+.lan-connector-line {
+  position: absolute;
+  background: linear-gradient(90deg, transparent, rgba(28, 176, 246, 0.3), transparent);
+  height: 2px;
+  width: 100%;
+  top: 50%;
+  left: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Security gauges & threat flow cards */
+.security-simulator-card {
+  position: relative;
+  padding: 2rem;
+  border-radius: 28px;
+  background: rgba(18, 22, 36, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  margin: 1.5rem 0;
+  overflow: hidden;
+}
+
+.security-glass-shimmer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #1cb0f6, #4caf50, #ff647c);
+}
+
+.security-gauge-outer {
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+  overflow: hidden;
+  margin: 1.25rem 0;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.security-gauge-inner {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease;
+}
+
+.security-actions-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.security-sim-btn {
+  padding: 0.65rem 1.25rem !important;
+  border-radius: 12px !important;
+  font-weight: 750 !important;
+  text-transform: none !important;
+  font-size: 0.85rem !important;
+  transition: all 0.2s ease !important;
+}
+
+.security-sim-btn:hover {
+  transform: translateY(-2px);
+}
+
+.security-term-console {
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 16px;
+  padding: 1.15rem;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.82rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin-top: 1.5rem;
+  max-height: 150px;
+  overflow-y: auto;
+  text-align: left;
+  line-height: 1.6;
+}
+
+.security-console-line {
+  margin: 0;
+  color: #a9b2c3;
+}
+
+.security-console-line.warn {
+  color: #ffa726;
+}
+
+.security-console-line.success {
+  color: #66bb6a;
+}
+
+.security-console-line.danger {
+  color: #ef5350;
+}
+
+.security-console-line.info {
+  color: #29b6f6;
+}
+
+.security-choice-chip {
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+  color: var(--text-secondary);
+}
+
+.security-choice-chip:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  border-color: rgba(28, 176, 246, 0.45);
+}
+
+.security-choice-chip.correct {
+  border-color: var(--success-main);
+  background: rgba(76, 175, 80, 0.08);
+  color: #fff;
+}
+
+.security-choice-chip.wrong {
+  border-color: var(--danger-main);
+  background: rgba(244, 67, 54, 0.08);
+  color: #fff;
+}
+
+/* Custom Tabs for switchers */
+.visual-tab-header {
+  display: flex;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.35rem;
+  border-radius: 14px;
+  margin-bottom: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.visual-tab-btn {
+  flex: 1;
+  padding: 0.5rem;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+}
+
+.visual-tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.visual-tab-btn.active {
+  background: var(--background-paper);
+  color: var(--primary-main);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+

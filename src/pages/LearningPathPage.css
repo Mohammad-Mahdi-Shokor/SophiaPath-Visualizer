@@ -90,9 +90,10 @@
 }
 
 .path-node-active {
-  background: var(--hero-gradient);
-  color: white;
-  box-shadow: var(--shadow-glow);
+  background: linear-gradient(135deg, #1CB0F6, #41c4ff);
+  color: #ffffff;
+  border: 2px solid #1899D6;
+  box-shadow: 0 8px 24px rgba(28, 176, 246, 0.3);
 }
 
 .path-node-upcoming {

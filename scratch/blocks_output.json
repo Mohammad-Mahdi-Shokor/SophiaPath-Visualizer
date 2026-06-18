@@ -1,0 +1,244 @@
+[
+  {
+    "lIdx": 52,
+    "pIdx": 6,
+    "bIdx": 0,
+    "block": {
+      "type": "code_challenge",
+      "example": {
+        "input": "10\n0",
+        "output": "Cannot divide by zero!",
+        "explanation": "Denominator is 0, exception thrown and caught."
+      },
+      "problem": "Write a program that reads two integers from the user (numerator and denominator). If the denominator is 0, throw an ArithmeticException with the message \"Cannot divide by zero!\". Catch the exception and print the error message. If valid, calculate and print the result as a double with 2 decimal places.",
+      "testCases": [
+        {
+          "input": "10\n0",
+          "expectedOutput": "Cannot divide by zero!"
+        },
+        {
+          "input": "10\n4",
+          "expectedOutput": "Result: 2.50"
+        },
+        {
+          "input": "7\n2",
+          "expectedOutput": "Result: 3.50"
+        }
+      ],
+      "constraints": "Use try-catch. Throw exception when denominator is 0.",
+      "inputFormat": "Two integers on separate lines: numerator, then denominator.",
+      "starterCode": {
+        "lines": [
+          "import java.util.Scanner;",
+          "",
+          "public class Main {",
+          "    public static void main(String[] args) {",
+          "        // Write your code here",
+          "    }",
+          "}"
+        ],
+        "language": "java"
+      },
+      "outputFormat": "Result: <value>\nOr: Cannot divide by zero!",
+      "hiddenTestCases": [
+        {
+          "input": "100\n0",
+          "expectedOutput": "Cannot divide by zero!"
+        },
+        {
+          "input": "15\n3",
+          "expectedOutput": "Result: 5.00"
+        }
+      ]
+    }
+  },
+  {
+    "lIdx": 52,
+    "pIdx": 7,
+    "bIdx": 0,
+    "block": {
+      "type": "code_challenge",
+      "example": {
+        "input": "-5",
+        "output": "Negative numbers not allowed!",
+        "explanation": "Negative number triggers exception."
+      },
+      "problem": "Write a program that reads an integer from the user. If the number is negative, throw an Exception with message \"Negative numbers not allowed!\". If zero, throw an Exception with message \"Zero is not valid!\". Catch both with a single catch block and print the message. If positive, print \"Valid: \" followed by the number.",
+      "testCases": [
+        {
+          "input": "-5",
+          "expectedOutput": "Negative numbers not allowed!"
+        },
+        {
+          "input": "0",
+          "expectedOutput": "Zero is not valid!"
+        },
+        {
+          "input": "42",
+          "expectedOutput": "Valid: 42"
+        },
+        {
+          "input": "100",
+          "expectedOutput": "Valid: 100"
+        }
+      ],
+      "constraints": "Use multiple throw statements, single catch block.",
+      "inputFormat": "A single integer.",
+      "starterCode": {
+        "lines": [
+          "import java.util.Scanner;",
+          "",
+          "public class Main {",
+          "    public static void main(String[] args) {",
+          "        // Write your code here",
+          "    }",
+          "}"
+        ],
+        "language": "java"
+      },
+      "outputFormat": "Valid: <number>\nOr: <error message>",
+      "hiddenTestCases": [
+        {
+          "input": "-1",
+          "expectedOutput": "Negative numbers not allowed!"
+        },
+        {
+          "input": "7",
+          "expectedOutput": "Valid: 7"
+        }
+      ]
+    }
+  },
+  {
+    "lIdx": 57,
+    "pIdx": 7,
+    "bIdx": 0,
+    "block": {
+      "type": "code_challenge",
+      "example": {
+        "input": "",
+        "output": "Washing Machine: On — Washing\nRefrigerator: On — Cooling",
+        "explanation": "Both turned on, operate differently."
+      },
+      "problem": "Create the Appliance hierarchy shown above. <b>Appliance</b> is abstract with protected name/isOn, concrete turnOn()/turnOff()/getStatus(), and abstract operate(). <b>WashingMachine</b> operate() returns \"Washing\". <b>Refrigerator</b> operate() returns \"Cooling\". In main(), create both, turn on, print name + status + operation.",
+      "testCases": [
+        {
+          "input": "",
+          "expectedOutput": "Washing Machine: On — Washing\nRefrigerator: On — Cooling"
+        }
+      ],
+      "umlDiagram": [
+        {
+          "title": "Appliance",
+          "methods": [
+            {
+              "name": "Appliance",
+              "parameters": [
+                {
+                  "name": "name",
+                  "type": "String"
+                }
+              ],
+              "returnType": "constructor"
+            },
+            {
+              "name": "turnOn",
+              "parameters": [],
+              "returnType": "void"
+            },
+            {
+              "name": "turnOff",
+              "parameters": [],
+              "returnType": "void"
+            },
+            {
+              "name": "getStatus",
+              "parameters": [],
+              "returnType": "String"
+            },
+            {
+              "name": "operate",
+              "abstract": true,
+              "parameters": [],
+              "returnType": "String"
+            }
+          ],
+          "abstract": true,
+          "attributes": [
+            {
+              "name": "name",
+              "type": "String",
+              "visibility": "protected"
+            },
+            {
+              "name": "isOn",
+              "type": "boolean",
+              "visibility": "protected"
+            }
+          ]
+        },
+        {
+          "title": "WashingMachine",
+          "methods": [
+            {
+              "name": "WashingMachine",
+              "parameters": [
+                {
+                  "name": "name",
+                  "type": "String"
+                }
+              ],
+              "returnType": "constructor"
+            },
+            {
+              "name": "operate",
+              "parameters": [],
+              "returnType": "String"
+            }
+          ],
+          "attributes": []
+        },
+        {
+          "title": "Refrigerator",
+          "methods": [
+            {
+              "name": "Refrigerator",
+              "parameters": [
+                {
+                  "name": "name",
+                  "type": "String"
+                }
+              ],
+              "returnType": "constructor"
+            },
+            {
+              "name": "operate",
+              "parameters": [],
+              "returnType": "String"
+            }
+          ],
+          "attributes": []
+        }
+      ],
+      "constraints": "Use abstract class with one abstract method. getStatus() returns \"On\" or \"Off\" based on isOn.",
+      "inputFormat": "No input required.",
+      "starterCode": {
+        "lines": [
+          "public class Main {",
+          "    public static void main(String[] args) {",
+          "        // Write your code here",
+          "    }",
+          "}"
+        ],
+        "language": "java"
+      },
+      "outputFormat": "Washing Machine: On — Washing\nRefrigerator: On — Cooling",
+      "hiddenTestCases": [
+        {
+          "input": "",
+          "expectedOutput": "Washing Machine: On — Washing\nRefrigerator: On — Cooling"
+        }
+      ]
+    }
+  }
+]
