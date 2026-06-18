@@ -1,0 +1,151 @@
+.learning-content-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.learning-content-meta {
+  margin-bottom: 24px;
+}
+
+.slide-page-title {
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  margin-bottom: 1.5rem;
+}
+
+.slide-blocks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.slide-code-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--mui-palette-background-paper);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.code-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  color: var(--mui-palette-text-secondary);
+}
+
+.code-card-body {
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.code-pre {
+  margin: 0;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--mui-palette-text-primary);
+}
+
+.code-line {
+  display: flex;
+  align-items: flex-start;
+}
+
+.code-line-number {
+  width: 2.4rem;
+  text-align: right;
+  padding-right: 1rem;
+  opacity: 0.48;
+  user-select: none;
+}
+
+.code-line-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.inline-mcq-container,
+.inline-code-exercise-container {
+  padding: 1.5rem;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.inline-code-exercise-container pre {
+  margin: 0;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--mui-palette-text-primary);
+}
+
+.inline-code-exercise-container input,
+.inline-code-exercise-container textarea {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.86rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: inherit;
+}
+
+.inline-code-exercise-container textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.slide-blocks-list table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+}
+
+.slide-blocks-list th,
+.slide-blocks-list td {
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.slide-blocks-list th {
+  text-align: left;
+  font-weight: 700;
+  background: rgba(255,255,255,0.04);
+}
+
+.learning-content-footer {
+  margin-top: 32px;
+}
+
+.challenge-console {
+  background: rgba(0,0,0,0.14);
+  border-radius: 16px;
+  padding: 1rem;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.85rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.challenge-console p {
+  margin: 0 0 0.5rem;
+}
+
+.challenge-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .learning-content-meta {
+    margin-bottom: 18px;
+  }
+}
