@@ -1,5 +1,6 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { CppPlaygroundDialog } from '../components/CppPlaygroundDialog';
 import { JavaOopUmlPlayground } from '../components/JavaOopUmlPlayground';
 import {
@@ -35,79 +36,9 @@ import {
   ArrowDownward as ArrowDownwardIcon,
   Terminal as TerminalIcon
 } from '@mui/icons-material';
+import { loadCourseFile, normalizeCourse, findCourseByIdOrSlug } from '../utils/courseData.js';
 
 import './LearningPathPage.css';
-
-/**
- * Extracts code snippets from lesson pages in info.csv.
- * Returns a lookup: { cppCode: string, javaExamples: [...] }
- */
-const extractCodeFromCourse = (rawCourse) => {
-  const cppSnippets = [];
-  const javaSnippets = [];
-
-  (rawCourse.sections || []).forEach(sec => {
-    (sec.lessons || []).forEach(les => {
-      (les.pages || []).forEach(page => {
-        (page.blocks || []).forEach(block => {
-          if (block.type === 'normal_code' && block.codeSnippet) {
-            const lang = (block.codeSnippet.language || '').toLowerCase();
-            const codeText = (block.codeSnippet.lines || []).join('\n');
-            if (codeText.trim()) {
-              if (lang === 'cpp' || lang === 'c++') {
-                cppSnippets.push(codeText);
-              } else if (lang === 'java') {
-                javaSnippets.push(codeText);
-              }
-            }
-          }
-        });
-      });
-    });
-  });
-
-  return { cppSnippets, javaSnippets };
-};
-
-const normalizeCourse = (rawCourse) => ({
-  id: rawCourse.id,
-  title: rawCourse.title,
-  description: rawCourse.description || '',
-  about: rawCourse.about || '',
-  imageUrl: rawCourse.imageUrl || '',
-  comingsoon: rawCourse.comingsoon || false,
-  totalLessons: rawCourse.totalLessons || 0,
-  codeIndex: extractCodeFromCourse(rawCourse),
-  sections: (rawCourse.sections || [])
-    .slice()
-    .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
-    .map(sec => ({
-      id: sec.id,
-      title: sec.title,
-      description: sec.description || '',
-      orderIndex: sec.orderIndex || 0,
-      lessons: (sec.lessons || [])
-        .slice()
-        .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
-        .map(les => ({
-          id: les.id,
-          category: les.category || 'learning',
-          chapterName: les.chapterName || '',
-          title: les.title || 'Untitled Lesson',
-          orderIndex: les.orderIndex || 0,
-          // Preserve code snippets for playground integration
-          codeSnippets: (les.pages || []).flatMap(page =>
-            (page.blocks || [])
-              .filter(b => b.type === 'normal_code' && b.codeSnippet)
-              .map(b => ({
-                language: (b.codeSnippet.language || '').toLowerCase(),
-                code: (b.codeSnippet.lines || []).join('\n'),
-                runnable: b.runable !== false,
-              }))
-          ),
-        }))
-    }))
-});
 
 const getNodeIcon = (node) => {
   if (node.status === 'upcoming') {
@@ -125,14 +56,11 @@ const getNodeIcon = (node) => {
 };
 
 const LearningPathPage = () => {
-  // Course ID derived from info.csv data dynamically — no hardcoded ID
-  const courseId = 'info-csv-course';
+  const courseId = '2';
   const theme = useTheme();
   const isMobileViewport = useMediaQuery(theme.breakpoints.down('sm'));
-  const location = { state: null };
-  const navigate = () => {};
-  const user = { quizScores: {} };
-  const updateQuizScore = () => {};
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [isCompilerOpen, setIsCompilerOpen] = useState(false);
   const [isJavaUmlPlaygroundOpen, setIsJavaUmlPlaygroundOpen] = useState(false);
@@ -141,6 +69,14 @@ const LearningPathPage = () => {
   const [courseLoading, setCourseLoading] = useState(true);
   const [backendLessons, setBackendLessons] = useState({});
   const [loadingLessons, setLoadingLessons] = useState(false);
+  const [quizScores, setQuizScores] = useState({});
+
+  const updateQuizScore = useCallback((lessonId, percentage) => {
+    setQuizScores(prev => ({
+      ...prev,
+      [lessonId]: Math.max(prev[lessonId] || 0, percentage)
+    }));
+  }, []);
 
   // Roadmap Preview Popover & Dialog State
   const [anchorEl, setAnchorEl] = useState(null);
@@ -155,29 +91,23 @@ const LearningPathPage = () => {
   useEffect(() => {
     const loadCourse = async () => {
       try {
-        const res = await fetch('/info.csv');
-        if (!res.ok) {
-          throw new Error(`Could not load info.csv (${res.status})`);
+        if (location.state?.course) {
+          setCourse(location.state.course);
+        } else {
+          const rawCourses = await loadCourseFile();
+          const matched = findCourseByIdOrSlug(rawCourses, courseId);
+          setCourse(matched ? normalizeCourse(matched) : null);
         }
-        const data = JSON.parse(await res.text());
-        const list = Array.isArray(data) ? data : [data];
-        const matched = list.find(c =>
-          String(c.id) === '2' ||
-          String(c.id) === String(courseId) ||
-          c.title?.toLowerCase()?.includes('computer science') ||
-          c.title?.toLowerCase()?.replace(/\s+/g, '-') === String(courseId).toLowerCase()
-        );
-
-        setCourse(matched ? normalizeCourse(matched) : null);
       } catch (err) {
         console.error('Failed to load course path from info.csv:', err);
         setCourse(null);
+      } finally {
+        setCourseLoading(false);
       }
-      setCourseLoading(false);
     };
 
     loadCourse();
-  }, [courseId]);
+  }, [courseId, location.state]);
 
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const [hasInitialSectionBeenSet, setHasInitialSectionBeenSet] = useState(false);
@@ -186,9 +116,7 @@ const LearningPathPage = () => {
 
   const domainKey = course ? course.id : 'unknown';
 
-  const scores = useMemo(() => {
-    return user?.quizScores || {};
-  }, [user]);
+  const scores = useMemo(() => quizScores, [quizScores]);
 
   const sections = useMemo(() => {
     if (!course || !course.sections) return [];

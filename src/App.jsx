@@ -3,7 +3,9 @@ import IconButton from '@mui/material/IconButton';
 import { alpha, createTheme, ThemeProvider } from '@mui/material/styles';
 import { DarkMode as DarkModeIcon, LightMode as LightModeIcon } from '@mui/icons-material';
 import { useMemo, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LearningPathPage from './pages/LearningPathPage.jsx';
+import LearningContentPage from './pages/LearningContentPage.jsx';
 
 const baseColors = {
   primary: '#3D5CFF',
@@ -158,7 +160,12 @@ export default function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <div data-theme={mode}>
-        <LearningPathPage />
+        <Router>
+          <Routes>
+            <Route path="/learning/:courseId/:sectionId/:lessonId" element={<LearningContentPage />} />
+            <Route path="/*" element={<LearningPathPage />} />
+          </Routes>
+        </Router>
         <IconButton
           className="visualizer-theme-toggle"
           onClick={() => setMode((value) => (value === 'light' ? 'dark' : 'light'))}
