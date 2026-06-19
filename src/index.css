@@ -218,15 +218,3 @@ button,
   display: inline;
   vertical-align: middle;
 }
-
-@media (max-width: 768px) {
-  html {
-    font-size: 70% !important;
-  }
-}
-
-@media (max-width: 480px) {
-  html {
-    font-size: 60% !important; /* 9.6px base font size */
-  }
-}

@@ -29,6 +29,7 @@ import {
   LightMode as LightModeIcon,
   Code as CodeIcon,
   Terminal as TerminalIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -54,7 +55,13 @@ function saveProgress(progress) {
 
 const getNodeIcon = (node, isMobile) => {
   const cat = node.category?.toLowerCase() || 'learning';
+  const title = (node.title || '').trim().toLowerCase();
   const size = isMobile ? 21 : 28;
+  
+  if (title.startsWith('chapter test') || title.startsWith('review')) {
+    return <StarIcon sx={{ fontSize: size }} />;
+  }
+  
   if (cat === 'exercise' || cat === 'quiz' || cat === 'mcq') {
     return <ExerciseIcon sx={{ fontSize: size }} />;
   }
@@ -114,7 +121,12 @@ const LearningPathPage = () => {
         const cat = (l.category || '').trim().toLowerCase();
         return !(title.startsWith('cheatsheet:') || title.startsWith('cheatsheet ') || title === 'cheatsheet' || cat === 'cheatsheet');
       });
-      const completedLessons = coreLessons.filter(l => (progress[l.id] || 0) >= 70);
+      const completedLessons = coreLessons.filter(l => {
+        const cat = (l.category || '').trim().toLowerCase();
+        const isExercise = ['exercise', 'quiz', 'mcq', 'assessment', 'test', 'exam'].includes(cat);
+        if (isExercise && progress[l.id] !== undefined) return true;
+        return (progress[l.id] || 0) >= 70;
+      });
       const isComplete = coreLessons.length > 0 && completedLessons.length === coreLessons.length;
 
       return {
@@ -190,8 +202,15 @@ const LearningPathPage = () => {
     const xRight = isMobileViewport ? 235 : 255;
 
     return lessons.map((lesson, index) => {
-      const score = progress[lesson.id] || 0;
-      const isPassed = score >= 70;
+      const rawScore = progress[lesson.id];
+      const score = rawScore || 0;
+      const cat = (lesson.category || '').trim().toLowerCase();
+      const isExercise = ['exercise', 'quiz', 'mcq', 'assessment', 'test', 'exam'].includes(cat);
+      
+      let isPassed = score >= 70;
+      if (isExercise && rawScore !== undefined) {
+        isPassed = true;
+      }
 
       let status = 'active';
       if (isPassed) status = 'completed';
@@ -218,6 +237,8 @@ const LearningPathPage = () => {
         isNewChapter,
         status,
         score,
+        rawScore,
+        isExercise,
         pos: { x, y: currentY },
       };
     });
@@ -310,7 +331,9 @@ const LearningPathPage = () => {
             display: 'grid', placeItems: 'center',
             boxShadow: '0 8px 16px rgba(0,0,0,0.15)', flexShrink: 0
           }}>
-            {selectedNode.category === 'exercise' || selectedNode.category === 'quiz' || selectedNode.category === 'mcq' ? (
+            {selectedNode.title?.toLowerCase().startsWith('chapter test') || selectedNode.title?.toLowerCase().startsWith('review') ? (
+              <StarIcon style={{ color: '#fff', fontSize: '26px' }} />
+            ) : selectedNode.category === 'exercise' || selectedNode.category === 'quiz' || selectedNode.category === 'mcq' ? (
               <ExerciseIcon style={{ color: '#fff', fontSize: '26px' }} />
             ) : selectedNode.category === 'assessment' || selectedNode.category === 'test' ? (
               <AssessmentIcon style={{ color: '#fff', fontSize: '26px' }} />
@@ -564,7 +587,7 @@ const LearningPathPage = () => {
                       </Box>
                     )}
 
-                    {node.status === 'completed' && node.score > 0 && (
+                    {node.status === 'completed' && node.isExercise && node.rawScore !== undefined && (
                       <Box style={{
                         position: 'absolute', 
                         bottom: isMobileViewport ? '-6px' : '-8px', 

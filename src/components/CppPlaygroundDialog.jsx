@@ -1829,7 +1829,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 overflow: 'hidden',
                 border: theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
                 backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#fffffe',
-                height: '480px',
+                height: isMobile ? '320px' : '480px',
                 width: '100%',
                 boxShadow: '0 4px 25px rgba(0,0,0,0.15)'
               }}>
@@ -1840,7 +1840,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                   onChange={(val) => setCode(val || '')}
                   theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
                   options={{
-                    fontSize: 13,
+                    fontSize: isMobile ? 11 : 13,
                     minimap: { enabled: false },
                     automaticLayout: true,
                     scrollBeyondLastLine: false,

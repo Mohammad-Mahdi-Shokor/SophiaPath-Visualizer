@@ -118,6 +118,11 @@
   transition: color 0.2s ease, opacity 0.2s ease;
   white-space: normal;
   word-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .path-node-caption-title.status-upcoming {
