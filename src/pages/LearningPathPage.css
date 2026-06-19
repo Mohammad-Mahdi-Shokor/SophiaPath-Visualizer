@@ -221,13 +221,6 @@
   }
 }
 
-@media (max-width: 767px) {
-  .path-visual-shell,
-  .path-footer {
-    padding: 1.4rem;
-  }
-}
-
 /* Floating Navigation Action Button (FAB) */
 .path-floating-action-btn {
   position: fixed !important;
@@ -259,7 +252,24 @@
 @media (max-width: 767px) {
   .path-visual-shell,
   .path-footer {
-    padding: 1.4rem;
+    padding: 1rem;
+  }
+  .path-node {
+    width: 3.75rem;
+    height: 3.75rem;
+    border-radius: 1.2rem;
+  }
+  .path-node-pulse {
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+  .path-node-caption-title {
+    top: 4.2rem;
+    font-size: 0.72rem;
+    width: 110px;
+  }
+  .path-title {
+    font-size: clamp(1.8rem, 5vw, 2.5rem);
   }
   .path-floating-action-btn {
     right: 24px !important;

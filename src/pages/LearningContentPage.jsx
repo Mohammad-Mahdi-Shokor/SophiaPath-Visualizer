@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  useMediaQuery,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -32,6 +33,7 @@ import {
   Cancel as CancelIcon,
   EmojiEvents as TrophyIcon,
   Terminal as TerminalIcon,
+  PictureAsPdf as PdfIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getLessonById } from '../data/courses';
@@ -113,6 +115,8 @@ const InlineMcqWidget = ({
   question, answers, correctAnswerIndex, codeSnippet,
   initiallyAnswered, initialSelectedIndex, onAnswered, isDarkMode
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex !== undefined ? initialSelectedIndex : null);
   const [answered, setAnswered] = useState(initiallyAnswered);
 
@@ -136,14 +140,14 @@ const InlineMcqWidget = ({
   const isCorrect = selectedIndex === correctAnswerIndex;
 
   return (
-    <Box className="inline-mcq-container glass-panel-strong" style={{ padding: '24px', margin: '20px 0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', background: 'rgba(255,255,255,0.02)' }}>
+    <Box className="inline-mcq-container glass-panel-strong" style={{ padding: isMobile ? '16px' : '24px', margin: '20px 0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', background: 'rgba(255,255,255,0.02)' }}>
       <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-        <HelpOutlineIcon style={{ color: 'var(--primary-main)' }} />
-        <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        <HelpOutlineIcon style={{ color: 'var(--primary-main)', fontSize: isMobile ? '20px' : '24px' }} />
+        <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
           Choose the Right Answer
         </Typography>
       </Box>
-      <Typography variant="body1" style={{ fontWeight: 650, marginBottom: '16px', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+      <Typography variant="body1" style={{ fontWeight: 650, marginBottom: '16px', color: 'var(--text-primary)', lineHeight: 1.5, fontSize: isMobile ? '0.85rem' : '1rem' }}>
         {parseFormattedText(question)}
       </Typography>
 
@@ -184,12 +188,12 @@ const InlineMcqWidget = ({
           return (
             <Button key={i} onClick={() => handleSelect(i)} disabled={answered}
               style={{
-                justifyContent: 'flex-start', textAlign: 'left', padding: '14px 18px',
+                justifyContent: 'flex-start', textAlign: 'left', padding: isMobile ? '10px 14px' : '14px 18px',
                 background: btnBg, border: btnBorder, borderRadius: '12px',
                 color: 'var(--text-primary)', textTransform: 'none',
                 width: '100%', fontWeight: isSelected ? 700 : 400
               }}>
-              <span style={{ flexGrow: 1, fontSize: '0.92rem' }}>{parseFormattedText(answerText)}</span>
+              <span style={{ flexGrow: 1, fontSize: isMobile ? '0.82rem' : '0.92rem' }}>{parseFormattedText(answerText)}</span>
               {answered && isSelected && (isCorrect ? <SuccessIcon style={{ color: '#4CAF50' }} /> : <CancelIcon style={{ color: '#ef5350' }} />)}
               {answered && !isSelected && isCorrectAnswer && <SuccessIcon style={{ color: '#4CAF50', opacity: 0.6 }} />}
             </Button>
@@ -199,13 +203,13 @@ const InlineMcqWidget = ({
 
       {answered && (
         <Box style={{
-          marginTop: '18px', padding: '14px 16px', borderRadius: '12px',
+          marginTop: '18px', padding: isMobile ? '10px 14px' : '14px 16px', borderRadius: '12px',
           backgroundColor: isCorrect ? 'rgba(76, 175, 80, 0.08)' : 'rgba(239, 83, 80, 0.08)',
           border: `1px solid ${isCorrect ? 'rgba(76, 175, 80, 0.15)' : 'rgba(239, 83, 80, 0.15)'}`,
           display: 'flex', alignItems: 'center', gap: '10px'
         }}>
-          {isCorrect ? <SuccessIcon style={{ color: '#4CAF50', fontSize: '20px' }} /> : <ErrorIcon style={{ color: '#ef5350', fontSize: '20px' }} />}
-          <Typography variant="body2" style={{ color: isCorrect ? '#4CAF50' : '#ef5350', fontWeight: 700 }}>
+          {isCorrect ? <SuccessIcon style={{ color: '#4CAF50', fontSize: isMobile ? '16px' : '20px' }} /> : <ErrorIcon style={{ color: '#ef5350', fontSize: isMobile ? '16px' : '20px' }} />}
+          <Typography variant="body2" style={{ color: isCorrect ? '#4CAF50' : '#ef5350', fontWeight: 700, fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
             {isCorrect ? 'Correct! Well done.' : 'Incorrect. Review the correct option highlighted above.'}
           </Typography>
         </Box>
@@ -219,6 +223,8 @@ const InlineCodeExerciseWidget = ({
   blockType, instruction, fileName, codeLines, language,
   initiallyAnswered, initialInputValues, onAnswered, isDarkMode
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [answered, setAnswered] = useState(initiallyAnswered);
   const [inputValues, setInputValues] = useState(initialInputValues || {});
   const [statuses, setStatuses] = useState({});
@@ -287,31 +293,31 @@ const InlineCodeExerciseWidget = ({
   };
 
   return (
-    <Box className="inline-code-exercise-container glass-panel-strong" style={{ padding: '24px', margin: '20px 0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', background: 'rgba(255,255,255,0.02)' }}>
+    <Box className="inline-code-exercise-container glass-panel-strong" style={{ padding: isMobile ? '16px' : '24px', margin: '20px 0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', background: 'rgba(255,255,255,0.02)' }}>
       <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
         <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <CodeIcon style={{ color: 'var(--primary-main)' }} />
-          <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <CodeIcon style={{ color: 'var(--primary-main)', fontSize: isMobile ? '20px' : '24px' }} />
+          <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
             {blockType === 'write_line' ? 'Write the Line' : 'Fill the Code'}
           </Typography>
         </Box>
-        <Chip size="small" label={language.toUpperCase()} style={{ background: 'rgba(28,176,246,0.1)', color: '#1CB0F6', fontWeight: 800 }} />
+        <Chip size="small" label={language.toUpperCase()} style={{ background: 'rgba(28,176,246,0.1)', color: '#1CB0F6', fontWeight: 800, fontSize: isMobile ? '0.65rem' : '0.8125rem' }} />
       </Box>
 
       {instruction && (
-        <Typography variant="body1" style={{ marginBottom: '16px', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+        <Typography variant="body1" style={{ marginBottom: '16px', color: 'var(--text-primary)', lineHeight: 1.5, fontSize: isMobile ? '0.85rem' : '1rem' }}>
           {parseFormattedText(instruction)}
         </Typography>
       )}
 
       {fileName && (
-        <Typography variant="caption" style={{ display: 'block', marginBottom: '10px', color: 'var(--text-secondary)', fontFamily: '"Roboto Mono", monospace', fontWeight: 600 }}>
+        <Typography variant="caption" style={{ display: 'block', marginBottom: '10px', color: 'var(--text-secondary)', fontFamily: '"Roboto Mono", monospace', fontWeight: 600, fontSize: isMobile ? '0.65rem' : '0.75rem' }}>
           📄 {fileName}
         </Typography>
       )}
 
-      <Box style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '18px', marginBottom: '18px', overflowX: 'auto' }}>
-        <pre style={{ margin: 0, fontFamily: '"Roboto Mono", monospace', fontSize: '0.85rem', color: 'var(--code-text-default)', lineHeight: 1.7 }}>
+      <Box style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: isMobile ? '12px' : '18px', marginBottom: '18px', overflowX: 'auto' }}>
+        <pre style={{ margin: 0, fontFamily: '"Roboto Mono", monospace', fontSize: isMobile ? '0.75rem' : '0.85rem', color: 'var(--code-text-default)', lineHeight: 1.7 }}>
           {visualRows.map((row, rowIdx) => (
             <div key={rowIdx} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', minHeight: '28px' }}>
               {row.map(({ line, idx }) => {
@@ -332,14 +338,14 @@ const InlineCodeExerciseWidget = ({
                       <textarea key={idx} value={val}
                         onChange={(e) => handleInputChange(idx, e.target.value)}
                         placeholder="// type code here..."
-                        style={{ width: '100%', minHeight: '90px', background: 'rgba(255,255,255,0.03)', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontFamily: '"Roboto Mono", monospace', padding: '10px', marginTop: '6px', marginBottom: '6px', resize: 'vertical', fontSize: '0.82rem' }}
+                        style={{ width: '100%', minHeight: '90px', background: 'rgba(255,255,255,0.03)', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontFamily: '"Roboto Mono", monospace', padding: '10px', marginTop: '6px', marginBottom: '6px', resize: 'vertical', fontSize: isMobile ? '0.75rem' : '0.82rem' }}
                       />
                     );
                   }
                   return (
                     <input key={idx} type="text" value={val}
                       onChange={(e) => handleInputChange(idx, e.target.value)}
-                      style={{ width: `${widthCh * 8 + 35}px`, background: 'rgba(255,255,255,0.04)', border: '1.5px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: '#fff', fontFamily: '"Roboto Mono", monospace', padding: '3px 8px', margin: '0 6px', fontSize: '0.82rem' }}
+                      style={{ width: `${widthCh * (isMobile ? 7 : 8) + (isMobile ? 25 : 35)}px`, background: 'rgba(255,255,255,0.04)', border: '1.5px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: '#fff', fontFamily: '"Roboto Mono", monospace', padding: '3px 8px', margin: '0 6px', fontSize: isMobile ? '0.75rem' : '0.82rem' }}
                     />
                   );
                 }
@@ -353,20 +359,20 @@ const InlineCodeExerciseWidget = ({
       {!answered ? (
         <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
           <Button variant="contained" onClick={handleCheck}
-            style={{ background: 'var(--hero-gradient)', color: '#fff', borderRadius: '12px', textTransform: 'none', fontWeight: 800, padding: '10px 24px' }}>
+            style={{ background: 'var(--hero-gradient)', color: '#fff', borderRadius: '12px', textTransform: 'none', fontWeight: 800, padding: isMobile ? '8px 18px' : '10px 24px', fontSize: isMobile ? '0.8rem' : '0.875rem' }}>
             Check Answer
           </Button>
-          {validationError && <Typography variant="body2" style={{ color: '#ef5350', fontWeight: 600, marginTop: '4px' }}>{validationError}</Typography>}
+          {validationError && <Typography variant="body2" style={{ color: '#ef5350', fontWeight: 600, marginTop: '4px', fontSize: isMobile ? '0.75rem' : '0.875rem' }}>{validationError}</Typography>}
         </Box>
       ) : (
         <Box style={{
-          padding: '14px 16px', borderRadius: '12px',
+          padding: isMobile ? '10px 14px' : '14px 16px', borderRadius: '12px',
           backgroundColor: lastAnswerCorrect ? 'rgba(76, 175, 80, 0.08)' : 'rgba(239, 83, 80, 0.08)',
           border: `1px solid ${lastAnswerCorrect ? 'rgba(76, 175, 80, 0.15)' : 'rgba(239, 83, 80, 0.15)'}`,
           display: 'flex', alignItems: 'center', gap: '10px'
         }}>
-          {lastAnswerCorrect ? <SuccessIcon style={{ color: '#4CAF50', fontSize: '20px' }} /> : <ErrorIcon style={{ color: '#ef5350', fontSize: '20px' }} />}
-          <Typography variant="body2" style={{ color: lastAnswerCorrect ? '#4CAF50' : '#ef5350', fontWeight: 700, lineHeight: 1.4 }}>
+          {lastAnswerCorrect ? <SuccessIcon style={{ color: '#4CAF50', fontSize: isMobile ? '16px' : '20px' }} /> : <ErrorIcon style={{ color: '#ef5350', fontSize: isMobile ? '16px' : '20px' }} />}
+          <Typography variant="body2" style={{ color: lastAnswerCorrect ? '#4CAF50' : '#ef5350', fontWeight: 700, lineHeight: 1.4, fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
             {feedbackMessage}
           </Typography>
         </Box>
@@ -380,6 +386,7 @@ const LearningContentPage = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
+  const isMobileViewport = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [lesson, setLesson] = useState(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -583,23 +590,23 @@ const LearningContentPage = () => {
         const isSkipped = exerciseAnswers[key] === false;
         
         return (
-          <Box key={idx} className="code-challenge-block glass-panel" style={{ padding: '20px 24px', margin: '20px 0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box key={idx} className="code-challenge-block glass-panel" style={{ padding: isMobileViewport ? '14px 16px' : '20px 24px', margin: '20px 0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: isMobileViewport ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobileViewport ? 'flex-start' : 'center', gap: isMobileViewport ? '12px' : '0' }}>
             <Box style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', borderRadius: '10px', background: isSolved ? 'rgba(76, 175, 80, 0.1)' : isSkipped ? 'rgba(158, 158, 158, 0.1)' : 'rgba(28, 176, 246, 0.1)' }}>
-                <TrophyIcon style={{ color: isSolved ? '#4CAF50' : isSkipped ? '#9e9e9e' : 'var(--primary-main)' }} />
+              <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: isMobileViewport ? '32px' : '40px', height: isMobileViewport ? '32px' : '40px', borderRadius: '10px', background: isSolved ? 'rgba(76, 175, 80, 0.1)' : isSkipped ? 'rgba(158, 158, 158, 0.1)' : 'rgba(28, 176, 246, 0.1)' }}>
+                <TrophyIcon style={{ color: isSolved ? '#4CAF50' : isSkipped ? '#9e9e9e' : 'var(--primary-main)', fontSize: isMobileViewport ? '18px' : '24px' }} />
               </Box>
               <Box>
-                <Typography variant="subtitle1" style={{ fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2 }}>Code Challenge</Typography>
+                <Typography variant="subtitle1" style={{ fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2, fontSize: isMobileViewport ? '0.9rem' : '1rem' }}>Code Challenge</Typography>
                 {isSolved ? (
-                  <Typography variant="caption" style={{ color: '#4CAF50', fontWeight: 700 }}>Completed ✅</Typography>
+                  <Typography variant="caption" style={{ color: '#4CAF50', fontWeight: 700, fontSize: isMobileViewport ? '0.65rem' : '0.75rem' }}>Completed ✅</Typography>
                 ) : isSkipped ? (
-                  <Typography variant="caption" style={{ color: '#9e9e9e', fontWeight: 700 }}>Skipped ⏭</Typography>
+                  <Typography variant="caption" style={{ color: '#9e9e9e', fontWeight: 700, fontSize: isMobileViewport ? '0.65rem' : '0.75rem' }}>Skipped ⏭</Typography>
                 ) : (
-                  <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Test your skills</Typography>
+                  <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: isMobileViewport ? '0.65rem' : '0.75rem' }}>Test your skills</Typography>
                 )}
               </Box>
             </Box>
-            <Box style={{ display: 'flex', gap: '12px' }}>
+            <Box style={{ display: 'flex', gap: '12px', width: isMobileViewport ? '100%' : 'auto', justifyContent: isMobileViewport ? 'flex-end' : 'flex-start' }}>
               {(!isSolved && !isSkipped) && (
                 <Button
                   variant="outlined"
@@ -610,7 +617,8 @@ const LearningContentPage = () => {
                     borderRadius: '12px',
                     textTransform: 'none',
                     fontWeight: 700,
-                    padding: '8px 16px',
+                    padding: isMobileViewport ? '6px 12px' : '8px 16px',
+                    fontSize: isMobileViewport ? '0.75rem' : '0.875rem'
                   }}
                 >
                   Skip
@@ -630,8 +638,9 @@ const LearningContentPage = () => {
                   borderRadius: '12px',
                   textTransform: 'none',
                   fontWeight: 800,
-                  padding: '8px 20px',
-                  boxShadow: (isSolved || isSkipped) ? 'none' : '0 4px 14px rgba(28, 176, 246, 0.3)'
+                  padding: isMobileViewport ? '6px 14px' : '8px 20px',
+                  boxShadow: (isSolved || isSkipped) ? 'none' : '0 4px 14px rgba(28, 176, 246, 0.3)',
+                  fontSize: isMobileViewport ? '0.75rem' : '0.875rem'
                 }}
               >
                 {isSolved ? 'Retake Challenge' : isSkipped ? 'Try Challenge' : 'Solve Challenge'}
@@ -723,14 +732,14 @@ const LearningContentPage = () => {
                 <Button
                   size="small"
                   variant="outlined"
-                  startIcon={<TerminalIcon />}
+                  startIcon={<TerminalIcon style={{ fontSize: isMobileViewport ? '14px' : '18px' }} />}
                   onClick={() => language.toLowerCase() === 'java' ? handleOpenJavaPlayground(codeText) : handleOpenCppPlayground(codeText)}
                   style={{
                     borderRadius: '8px',
                     fontWeight: 700,
                     textTransform: 'none',
-                    fontSize: '0.75rem',
-                    padding: '4px 12px',
+                    fontSize: isMobileViewport ? '0.65rem' : '0.75rem',
+                    padding: isMobileViewport ? '2px 8px' : '4px 12px',
                     borderColor: 'var(--primary-main)',
                     color: 'var(--primary-main)',
                   }}
@@ -757,21 +766,21 @@ const LearningContentPage = () => {
         const src = block.src || block.url || block.raw?.src || block.raw?.url || '';
         const alt = block.alt || block.caption || block.text || block.raw?.alt || '';
         return (
-          <Paper key={idx} className="slide-image-card glass-panel" elevation={0} style={{ padding: '24px', margin: '20px 0', border: '1px solid rgba(255,255,255,0.08)', position: 'relative', overflow: 'hidden' }}>
+          <Paper key={idx} className="slide-image-card glass-panel" elevation={0} style={{ padding: isMobileViewport ? '16px' : '24px', margin: '20px 0', border: '1px solid rgba(255,255,255,0.08)', position: 'relative', overflow: 'hidden' }}>
             <Box style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: 'var(--hero-gradient)' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '14px' }}>
-              <Box style={{ display: 'grid', placeItems: 'center', width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(28,176,246,0.1)', border: '1px solid rgba(28,176,246,0.2)', flexShrink: 0 }}>
-                <BookIcon style={{ color: 'var(--primary-main)', fontSize: '24px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobileViewport ? '12px' : '16px', marginBottom: '14px' }}>
+              <Box style={{ display: 'grid', placeItems: 'center', width: isMobileViewport ? '36px' : '48px', height: isMobileViewport ? '36px' : '48px', borderRadius: '12px', backgroundColor: 'rgba(28,176,246,0.1)', border: '1px solid rgba(28,176,246,0.2)', flexShrink: 0 }}>
+                <BookIcon style={{ color: 'var(--primary-main)', fontSize: isMobileViewport ? '18px' : '24px' }} />
               </Box>
               <div style={{ textAlign: 'left' }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
+                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', textTransform: 'capitalize', fontSize: isMobileViewport ? '0.75rem' : '0.875rem' }}>
                   {src ? src.replace(/_|-/g, ' ').replace('.png', '') : 'Visual Diagram'}
                 </Typography>
-                <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Concept Reference Diagram</Typography>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: isMobileViewport ? '0.65rem' : '0.75rem' }}>Concept Reference Diagram</Typography>
               </div>
             </div>
-            <Box style={{ padding: '14px', background: 'rgba(0,0,0,0.16)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
-              <Typography variant="body2" style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.5, textAlign: 'left' }}>
+            <Box style={{ padding: isMobileViewport ? '10px' : '14px', background: 'rgba(0,0,0,0.16)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
+              <Typography variant="body2" style={{ fontSize: isMobileViewport ? '0.75rem' : '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.5, textAlign: 'left' }}>
                 {alt || "Concept visual reference illustration."}
               </Typography>
             </Box>
@@ -806,6 +815,55 @@ const LearningContentPage = () => {
     );
   }
 
+  const isCheatsheet = lesson.title.toLowerCase().includes('cheatsheet') || lesson.category === 'cheatsheet';
+
+  const renderPageBlocks = (pageBlocks) => {
+    if (!pageBlocks) return null;
+    const elements = [];
+    let i = 0;
+    while (i < pageBlocks.length) {
+      const block = pageBlocks[i];
+      if (block.type === 'uml_diagram' || block.raw?.type === 'uml_diagram') {
+        const group = [{ block, originalIdx: i }];
+        let j = i + 1;
+        while (j < pageBlocks.length && (pageBlocks[j].type === 'uml_diagram' || pageBlocks[j].raw?.type === 'uml_diagram')) {
+          group.push({ block: pageBlocks[j], originalIdx: j });
+          j++;
+        }
+        if (group.length > 1) {
+          elements.push(
+            <Box key={`uml-group-${i}`} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 3 }}>
+              {group.map((item, index) => (
+                <React.Fragment key={item.originalIdx}>
+                  {index > 0 && (
+                    <svg width="24" height="40" viewBox="0 0 24 40" style={{ display: 'block', margin: '4px 0' }}>
+                      <polygon points="12,0 0,16 24,16" fill="none" stroke="var(--primary-main)" strokeWidth="2" />
+                      <line x1="12" y1="16" x2="12" y2="40" stroke="var(--primary-main)" strokeWidth="2" />
+                    </svg>
+                  )}
+                  <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                    {renderBlock(item.block, item.originalIdx)}
+                  </Box>
+                </React.Fragment>
+              ))}
+            </Box>
+          );
+        } else {
+          elements.push(
+            <Box key={`uml-${i}`} sx={{ my: 3 }}>
+              {renderBlock(block, i)}
+            </Box>
+          );
+        }
+        i = j;
+      } else {
+        elements.push(renderBlock(block, i));
+        i++;
+      }
+    }
+    return elements;
+  };
+
   return (
     <Box className="learning-content-page">
       <header className="learning-content-header glass-panel">
@@ -823,9 +881,22 @@ const LearningContentPage = () => {
               </Typography>
             </div>
           </div>
-          <IconButton onClick={() => navigate(`/course/${courseId}/${sectionId}`, { state: { returnedFromLessonId: lessonId } })} className="learning-close-btn">
-            <CloseIcon />
-          </IconButton>
+          <div className="learning-header-right" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {isCheatsheet && (
+              <Button 
+                variant="outlined" 
+                startIcon={<PdfIcon />} 
+                onClick={() => window.print()}
+                className="download-pdf-btn"
+                style={{ borderRadius: '12px', textTransform: 'none', fontWeight: 800, borderColor: 'var(--primary-main)', color: 'var(--primary-main)' }}
+              >
+                Download PDF
+              </Button>
+            )}
+            <IconButton onClick={() => navigate(`/course/${courseId}/${sectionId}`, { state: { returnedFromLessonId: lessonId } })} className="learning-close-btn">
+              <CloseIcon />
+            </IconButton>
+          </div>
         </Container>
         <LinearProgress variant="determinate" value={progressPercent} className="learning-progress-bar" />
       </header>
@@ -848,58 +919,36 @@ const LearningContentPage = () => {
                   </Typography>
                 )}
                 <div className="slide-blocks-list">
-                  {(() => {
-                    if (!currentPage.blocks) return null;
-                    const elements = [];
-                    let i = 0;
-                    while (i < currentPage.blocks.length) {
-                      const block = currentPage.blocks[i];
-                      if (block.type === 'uml_diagram' || block.raw?.type === 'uml_diagram') {
-                        const group = [{ block, originalIdx: i }];
-                        let j = i + 1;
-                        while (j < currentPage.blocks.length && (currentPage.blocks[j].type === 'uml_diagram' || currentPage.blocks[j].raw?.type === 'uml_diagram')) {
-                          group.push({ block: currentPage.blocks[j], originalIdx: j });
-                          j++;
-                        }
-                        if (group.length > 1) {
-                          elements.push(
-                            <Box key={`uml-group-${i}`} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 3 }}>
-                              {group.map((item, index) => (
-                                <React.Fragment key={item.originalIdx}>
-                                  {index > 0 && (
-                                    <svg width="24" height="40" viewBox="0 0 24 40" style={{ display: 'block', margin: '4px 0' }}>
-                                      <polygon points="12,0 0,16 24,16" fill="none" stroke="var(--primary-main)" strokeWidth="2" />
-                                      <line x1="12" y1="16" x2="12" y2="40" stroke="var(--primary-main)" strokeWidth="2" />
-                                    </svg>
-                                  )}
-                                  <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-                                    {renderBlock(item.block, item.originalIdx)}
-                                  </Box>
-                                </React.Fragment>
-                              ))}
-                            </Box>
-                          );
-                        } else {
-                          elements.push(
-                            <Box key={`uml-${i}`} sx={{ my: 3 }}>
-                              {renderBlock(block, i)}
-                            </Box>
-                          );
-                        }
-                        i = j;
-                      } else {
-                        elements.push(renderBlock(block, i));
-                        i++;
-                      }
-                    }
-                    return elements;
-                  })()}
+                  {renderPageBlocks(currentPage.blocks)}
                 </div>
               </Paper>
             </motion.div>
           )}
         </AnimatePresence>
       </Container>
+
+      {/* Hidden print container that shows all slides when printing */}
+      {isCheatsheet && (
+        <div className="print-only-container">
+          <Typography variant="h3" style={{ textAlign: 'center', margin: '2rem 0', fontWeight: 900, color: 'var(--text-primary)' }}>
+            {lesson.title}
+          </Typography>
+          {pages.map((page, pageIdx) => (
+            <div key={pageIdx} className="print-page">
+              <Paper elevation={0} style={{ padding: '2rem', marginBottom: '2rem', background: 'transparent', borderRadius: '16px' }}>
+                {page.pageTitle && (
+                  <Typography variant="h4" className="slide-page-title" gutterBottom style={{ color: '#000', WebkitTextFillColor: 'initial', background: 'none' }}>
+                    {page.pageTitle}
+                  </Typography>
+                )}
+                <div className="slide-blocks-list">
+                  {renderPageBlocks(page.blocks)}
+                </div>
+              </Paper>
+            </div>
+          ))}
+        </div>
+      )}
 
       <footer className="learning-content-footer glass-panel">
         <Container maxWidth="md" className="learning-footer-content">

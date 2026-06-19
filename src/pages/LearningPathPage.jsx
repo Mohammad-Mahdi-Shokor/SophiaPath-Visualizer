@@ -52,15 +52,16 @@ function saveProgress(progress) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
 }
 
-const getNodeIcon = (node) => {
+const getNodeIcon = (node, isMobile) => {
   const cat = node.category?.toLowerCase() || 'learning';
+  const size = isMobile ? 21 : 28;
   if (cat === 'exercise' || cat === 'quiz' || cat === 'mcq') {
-    return <ExerciseIcon sx={{ fontSize: 28 }} />;
+    return <ExerciseIcon sx={{ fontSize: size }} />;
   }
   if (cat === 'assessment' || cat === 'test' || cat === 'exam') {
-    return <AssessmentIcon sx={{ fontSize: 28 }} />;
+    return <AssessmentIcon sx={{ fontSize: size }} />;
   }
-  return <BookIcon sx={{ fontSize: 28 }} />;
+  return <BookIcon sx={{ fontSize: size }} />;
 };
 
 const LearningPathPage = () => {
@@ -180,6 +181,14 @@ const LearningPathPage = () => {
 
   const nodes = useMemo(() => {
     let currentY = 0;
+    
+    // Scale down layout for mobile by about 75%
+    const stepStart = isMobileViewport ? 120 : 160;
+    const stepNewChapter = isMobileViewport ? 270 : 360;
+    const stepNormal = isMobileViewport ? 115 : 150;
+    const xLeft = isMobileViewport ? 65 : 45;
+    const xRight = isMobileViewport ? 235 : 255;
+
     return lessons.map((lesson, index) => {
       const score = progress[lesson.id] || 0;
       const isPassed = score >= 70;
@@ -199,9 +208,9 @@ const LearningPathPage = () => {
         }
       }
 
-      currentY += index === 0 ? 160 : (isNewChapter ? 360 : 150);
+      currentY += index === 0 ? stepStart : (isNewChapter ? stepNewChapter : stepNormal);
 
-      const x = index % 2 === 0 ? 45 : 255;
+      const x = index % 2 === 0 ? xLeft : xRight;
 
       return {
         ...lesson,
@@ -212,12 +221,12 @@ const LearningPathPage = () => {
         pos: { x, y: currentY },
       };
     });
-  }, [lessons, progress]);
+  }, [lessons, progress, isMobileViewport]);
 
   const pathHeight = useMemo(() => {
     if (nodes.length === 0) return 300;
-    return nodes[nodes.length - 1].pos.y + 110;
-  }, [nodes]);
+    return nodes[nodes.length - 1].pos.y + (isMobileViewport ? 85 : 110);
+  }, [nodes, isMobileViewport]);
 
   const generatePath = () => {
     if (nodes.length < 2) return "";
@@ -505,22 +514,24 @@ const LearningPathPage = () => {
                 {node.isNewChapter && (
                   <Box style={{
                     position: 'absolute', left: '150px',
-                    top: `${node.pos.y - (index === 0 ? 126 : 220)}px`,
+                    top: `${node.pos.y - (index === 0 ? (isMobileViewport ? 95 : 126) : (isMobileViewport ? 165 : 220))}px`,
                     transform: 'translateX(-50%)', zIndex: 5,
                     width: '1200px', display: 'flex',
                     flexDirection: 'column', alignItems: 'center',
-                    pointerEvents: 'none', gap: '24px'
+                    pointerEvents: 'none', gap: isMobileViewport ? '16px' : '24px'
                   }}>
                     {index > 0 && (
                       <Box style={{ width: '100%', height: '0', borderTop: '3px dotted var(--text-secondary)', opacity: 0.4 }} />
                     )}
                     <Typography variant="h5" style={{
                       fontWeight: 900, color: 'var(--text-primary)',
-                      background: 'var(--surface-glass)', padding: '12px 32px',
+                      background: 'var(--surface-glass)', 
+                      padding: isMobileViewport ? '8px 24px' : '12px 32px',
                       borderRadius: '30px', border: '1px solid var(--divider)',
                       backdropFilter: 'blur(12px)', fontFamily: '"Outfit", sans-serif',
                       boxShadow: '0 4px 16px rgba(0,0,0,0.1)', textAlign: 'center',
-                      textTransform: 'uppercase', letterSpacing: '1.5px', fontSize: '1.35rem'
+                      textTransform: 'uppercase', letterSpacing: '1.5px', 
+                      fontSize: isMobileViewport ? '1rem' : '1.35rem'
                     }}>
                       {node.chapterName}
                     </Typography>
@@ -533,25 +544,33 @@ const LearningPathPage = () => {
                 }} onClick={(e) => handleNodeClick(e, node)}>
                   <Box className="path-node-wrapper">
                     <Box className={`path-node path-node-${node.status}`}>
-                      {getNodeIcon(node)}
+                      {getNodeIcon(node, isMobileViewport)}
                     </Box>
 
                     {node.status === 'completed' && (
                       <Box style={{
-                        position: 'absolute', top: '-4px', right: '-4px',
-                        width: '22px', height: '22px', borderRadius: '50%',
-                        backgroundColor: '#fff', border: '2.5px solid #29c57b',
+                        position: 'absolute', 
+                        top: isMobileViewport ? '-2px' : '-4px', 
+                        right: isMobileViewport ? '-2px' : '-4px',
+                        width: isMobileViewport ? '18px' : '22px', 
+                        height: isMobileViewport ? '18px' : '22px', 
+                        borderRadius: '50%',
+                        backgroundColor: '#fff', 
+                        border: `${isMobileViewport ? 2 : 2.5}px solid #29c57b`,
                         display: 'grid', placeItems: 'center',
                         boxShadow: '0 2px 6px rgba(0,0,0,0.2)', zIndex: 10
                       }}>
-                        <CheckIcon style={{ color: '#29c57b', fontSize: '12px', fontWeight: 'bold' }} />
+                        <CheckIcon style={{ color: '#29c57b', fontSize: isMobileViewport ? '10px' : '12px', fontWeight: 'bold' }} />
                       </Box>
                     )}
 
                     {node.status === 'completed' && node.score > 0 && (
                       <Box style={{
-                        position: 'absolute', bottom: '-8px', left: '50%',
-                        transform: 'translateX(-50%)', padding: '2px 8px',
+                        position: 'absolute', 
+                        bottom: isMobileViewport ? '-6px' : '-8px', 
+                        left: '50%',
+                        transform: 'translateX(-50%)', 
+                        padding: isMobileViewport ? '1.5px 6px' : '2px 8px',
                         borderRadius: '10px',
                         backgroundColor: node.score < 50 ? '#ff4d4d' : node.score < 80 ? '#ff9900' : '#29c57b',
                         border: '1.5px solid #fff',
@@ -559,7 +578,8 @@ const LearningPathPage = () => {
                       }}>
                         <Typography style={{
                           color: '#fff', fontWeight: 900,
-                          fontSize: '0.68rem', lineHeight: 1,
+                          fontSize: isMobileViewport ? '0.55rem' : '0.68rem', 
+                          lineHeight: 1,
                           fontFamily: '"Nunito", sans-serif'
                         }}>
                           {node.score}%

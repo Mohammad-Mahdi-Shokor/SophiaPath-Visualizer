@@ -19,7 +19,8 @@ import {
   Checkbox,
   FormControlLabel,
   useTheme,
-  Chip
+  Chip,
+  useMediaQuery
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -31,9 +32,9 @@ import {
   Terminal as TerminalIcon,
   HelpOutline as HelpIcon,
   Remove as RemoveIcon,
-  Visibility as PreviewIcon
+  Visibility as PreviewIcon,
+  ErrorOutline as ErrorIcon
 } from '@mui/icons-material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 
 // Preloaded OOP Examples
 const EXAMPLES = [
@@ -159,14 +160,25 @@ public class Car {
 const umlClassesToJava = (classes) => {
   let code = "";
   classes.forEach(uml => {
-    if (uml.abstract) {
-      code += "public abstract class " + uml.title;
-    } else {
-      code += "public class " + uml.title;
-    }
+    const isInterface = uml.type === "interface";
     
-    if (uml.extends) {
-      code += " extends " + uml.extends;
+    if (isInterface) {
+      code += "public interface " + uml.title;
+      if (uml.extendsInterfaces && uml.extendsInterfaces.length > 0) {
+        code += " extends " + uml.extendsInterfaces.join(", ");
+      }
+    } else {
+      if (uml.abstract) {
+        code += "public abstract class " + uml.title;
+      } else {
+        code += "public class " + uml.title;
+      }
+      if (uml.extends) {
+        code += " extends " + uml.extends;
+      }
+      if (!isInterface && uml.implements && uml.implements.length > 0) {
+        code += " implements " + uml.implements.join(", ");
+      }
     }
     
     code += " {\n";
@@ -184,7 +196,7 @@ const umlClassesToJava = (classes) => {
     uml.methods.forEach(m => {
       const vis = m.visibility === "public" ? "public" : (m.visibility === "protected" ? "protected" : "private");
       const isStatic = m.isStatic ? "static " : "";
-      const isAbstract = m.isAbstract;
+      const isAbstract = m.isAbstract || isInterface;
       
       const paramsStr = (m.parameters || []).map(p => `${p.type} ${p.name}`).join(", ");
       
@@ -315,26 +327,104 @@ const calculateCardWidth = (umlClass) => {
   return Math.min(600, maxWidth);
 };
 
+const calculateCompressedCardWidth = (umlClass) => {
+  let maxWidth = 180; // Minimum default compressed width
+  
+  // Title len
+  const titleLen = (umlClass.title || '').length;
+  const titleWidth = titleLen * 9 + 40;
+  if (titleWidth > maxWidth) maxWidth = titleWidth;
+  
+  // Extends len
+  if (umlClass.extends) {
+    const extLen = `extends ${umlClass.extends}`.length;
+    const extWidth = extLen * 8 + 40;
+    if (extWidth > maxWidth) maxWidth = extWidth;
+  }
+
+  // Attributes
+  (umlClass.attributes || []).forEach(attr => {
+    const visSign = attr.visibility === 'public' ? '+' : (attr.visibility === 'protected' ? '#' : '-');
+    const text = `${visSign} ${attr.name}: ${attr.type}`;
+    const textWidth = text.length * 7.5 + 30; // approx width in monospace
+    if (textWidth > maxWidth) maxWidth = textWidth;
+  });
+
+  // Methods
+  (umlClass.methods || []).forEach(method => {
+    const visSign = method.visibility === 'public' ? '+' : (method.visibility === 'protected' ? '#' : '-');
+    const paramStrings = (method.parameters || []).map(p => `${p.type} ${p.name}`);
+    const paramStr = paramStrings.join(', ');
+    const returnTypeStr = method.returnType === 'constructor' ? '' : `: ${method.returnType}`;
+    const text = `${visSign} ${method.name}(${paramStr})${returnTypeStr}`;
+    const textWidth = text.length * 7.5 + 30; // approx width in monospace
+    if (textWidth > maxWidth) maxWidth = textWidth;
+  });
+
+  return Math.min(320, maxWidth); // Cap at 320 to keep it clean
+};
+
 const javaToUmlClasses = (code) => {
   let cleanCode = code
     .replace(/\/\/.*$/gm, "") 
     .replace(/\/\*[\s\S]*?\*\//g, ""); 
 
   const classes = [];
-  const classDeclRegex = /(?:(public|protected|private)\s+)?(?:(abstract)\s+)?class\s+([A-Za-z0-9_]+)(?:\s+extends\s+([A-Za-z0-9_]+))?/g;
+  const classDeclRegex = /(?:(public|protected|private)\s+)?(?:(abstract)\s+)?(class|interface)\s+([A-Za-z0-9_]+)/g;
   let match;
   
   while ((match = classDeclRegex.exec(cleanCode)) !== null) {
     const isAbstract = !!match[2];
-    const className = match[3];
-    
-    if (className === 'Main') continue;
-
-    const extendsClass = match[4] || null;
+    const type = match[3]; // 'class' | 'interface'
+    const className = match[4];
     
     const searchStart = match.index + match[0].length;
     const openBraceIdx = cleanCode.indexOf("{", searchStart);
     if (openBraceIdx === -1) continue;
+    
+    const signatureText = cleanCode.substring(searchStart, openBraceIdx).trim();
+    
+    let extendsClass = null;
+    let extendsList = [];
+    let implementsList = [];
+    
+    const extendsIdx = signatureText.indexOf("extends");
+    const implementsIdx = signatureText.indexOf("implements");
+    
+    if (extendsIdx !== -1 && implementsIdx !== -1 && implementsIdx < extendsIdx) {
+      throw new Error(`'extends' must come before 'implements' in class/interface '${className}' declaration signature`);
+    }
+    
+    let extendsPart = "";
+    let implementsPart = "";
+    
+    if (extendsIdx !== -1) {
+      if (implementsIdx !== -1 && implementsIdx > extendsIdx) {
+        extendsPart = signatureText.substring(extendsIdx + 7, implementsIdx).trim();
+        implementsPart = signatureText.substring(implementsIdx + 10).trim();
+      } else {
+        extendsPart = signatureText.substring(extendsIdx + 7).trim();
+      }
+    } else if (implementsIdx !== -1) {
+      implementsPart = signatureText.substring(implementsIdx + 10).trim();
+    }
+    
+    if (extendsPart) {
+      extendsList = extendsPart.split(",").map(s => s.trim()).filter(s => s.length > 0);
+      if (type === 'class') {
+        if (extendsList.length > 1) {
+          throw new Error(`Class '${className}' cannot extend multiple classes: ${extendsList.join(", ")}`);
+        }
+        extendsClass = extendsList[0] || null;
+      }
+    }
+    
+    if (implementsPart) {
+      implementsList = implementsPart.split(",").map(s => s.trim()).filter(s => s.length > 0);
+      if (type === 'interface') {
+        throw new Error(`Interface '${className}' cannot use 'implements' keyword. Interfaces must use 'extends' to inherit other interfaces.`);
+      }
+    }
     
     let depth = 1;
     let closeBraceIdx = -1;
@@ -348,15 +438,19 @@ const javaToUmlClasses = (code) => {
         }
       }
     }
-    
-    if (closeBraceIdx === -1) continue;
-    
+    if (closeBraceIdx === -1) {
+      throw new Error(`Class/Interface '${className}' is missing closing brace '}'`);
+    }
     const classBody = cleanCode.substring(openBraceIdx + 1, closeBraceIdx);
+    classDeclRegex.lastIndex = closeBraceIdx + 1;
     
     const uml = {
       title: className,
+      type: type,
       abstract: isAbstract,
-      extends: extendsClass,
+      extends: type === 'class' ? extendsClass : null,
+      extendsInterfaces: type === 'interface' ? extendsList : [],
+      implements: implementsList,
       attributes: [],
       methods: []
     };
@@ -420,10 +514,294 @@ const javaToUmlClasses = (code) => {
       }
     }
     
+    if (accumulated.trim().length > 0) {
+      throw new Error(`Leftover token '${accumulated.trim()}' in class/interface '${className}' body - missing semicolon ';' or brace '{'`);
+    }
+    
     classes.push(uml);
   }
   
   return classes;
+};
+
+const validateProposedClasses = (classes) => {
+  // 1. Check duplicate class/interface names
+  const titles = classes.map(c => c.title);
+  const duplicates = titles.filter((item, index) => titles.indexOf(item) !== index);
+  if (duplicates.length > 0) {
+    return `Duplicate class/interface name: '${duplicates[0]}'`;
+  }
+
+  // Create typeMap to verify target types (class vs interface)
+  const typeMap = {};
+  for (const c of classes) {
+    typeMap[c.title] = c.type;
+  }
+
+  // 2. Check self-inheritance / implements and interchangeable relationships
+  for (const c of classes) {
+    if (c.extends) {
+      if (c.extends === c.title) {
+        return `Class '${c.title}' cannot extend itself.`;
+      }
+      const parentType = typeMap[c.extends];
+      if (parentType === 'interface') {
+        return `Class '${c.title}' cannot extend interface '${c.extends}'. Classes must use 'implements' to implement interfaces.`;
+      }
+    }
+
+    if (c.extendsInterfaces) {
+      for (const parent of c.extendsInterfaces) {
+        if (parent === c.title) {
+          return `Interface '${c.title}' cannot extend itself.`;
+        }
+        const parentType = typeMap[parent];
+        if (parentType === 'class') {
+          return `Interface '${c.title}' cannot extend class '${parent}'. Interfaces can only extend other interfaces.`;
+        }
+      }
+    }
+
+    if (c.implements) {
+      for (const imp of c.implements) {
+        if (imp === c.title) {
+          return `Class/Interface '${c.title}' cannot implement itself.`;
+        }
+        const targetType = typeMap[imp];
+        if (targetType === 'class') {
+          return `Class '${c.title}' cannot implement class '${imp}'. Classes must use 'extends' to inherit from other classes.`;
+        }
+      }
+      if (c.type === 'interface' && c.implements.length > 0) {
+        return `Interface '${c.title}' cannot implement other structures. Interfaces must use 'extends' to inherit other interfaces.`;
+      }
+    }
+  }
+
+  // 3. Cycle detection (DFS)
+  const visited = {};
+  const recStack = {};
+
+  const hasCycle = (node, path = []) => {
+    if (!visited[node]) {
+      visited[node] = true;
+      recStack[node] = true;
+      path.push(node);
+
+      const c = classes.find(x => x.title === node);
+      if (c) {
+        const neighbors = [];
+        if (c.type === 'class' && c.extends) {
+          neighbors.push(c.extends);
+        }
+        if (c.type === 'interface' && c.extendsInterfaces) {
+          c.extendsInterfaces.forEach(parent => neighbors.push(parent));
+        }
+        if (c.implements) {
+          c.implements.forEach(imp => neighbors.push(imp));
+        }
+
+        for (const neighbor of neighbors) {
+          if (!visited[neighbor]) {
+            if (hasCycle(neighbor, path)) {
+              return true;
+            }
+          } else if (recStack[neighbor]) {
+            path.push(neighbor);
+            return true;
+          }
+        }
+      }
+
+      recStack[node] = false;
+      path.pop();
+    }
+    return false;
+  };
+
+  for (const c of classes) {
+    const path = [];
+    classes.forEach(x => {
+      visited[x.title] = false;
+      recStack[x.title] = false;
+    });
+    if (hasCycle(c.title, path)) {
+      const cycleStartIdx = path.indexOf(path[path.length - 1]);
+      const cyclePath = path.slice(cycleStartIdx);
+      const cycleStr = cyclePath.join(" -> ");
+      return `Cyclic inheritance/dependency detected: ${cycleStr}`;
+    }
+  }
+
+  return null;
+};
+
+const checkJavaSyntax = (code) => {
+  let braceStack = [];
+  let parenStack = [];
+  
+  let inSingleLineComment = false;
+  let inMultiLineComment = false;
+  let inString = false;
+  let inChar = false;
+  
+  const lines = code.split('\n');
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    inSingleLineComment = false;
+    
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      const nextChar = line[j + 1];
+      
+      if (inMultiLineComment) {
+        if (char === '*' && nextChar === '/') {
+          inMultiLineComment = false;
+          j++;
+        }
+        continue;
+      }
+      
+      if (inSingleLineComment) {
+        break;
+      }
+      
+      if (inString) {
+        if (char === '\\') {
+          j++;
+        } else if (char === '"') {
+          inString = false;
+        }
+        continue;
+      }
+      
+      if (inChar) {
+        if (char === '\\') {
+          j++;
+        } else if (char === "'") {
+          inChar = false;
+        }
+        continue;
+      }
+      
+      if (char === '/' && nextChar === '/') {
+        inSingleLineComment = true;
+        j++;
+        continue;
+      }
+      if (char === '/' && nextChar === '*') {
+        inMultiLineComment = true;
+        j++;
+        continue;
+      }
+      if (char === '"') {
+        inString = true;
+        continue;
+      }
+      if (char === "'") {
+        inChar = true;
+        continue;
+      }
+      
+      if (char === '{') {
+        braceStack.push({ line: i + 1, col: j + 1 });
+      } else if (char === '}') {
+        if (braceStack.length === 0) {
+          return { error: `Mismatched closing brace '}' at line ${i + 1}, column ${j + 1}`, line: i + 1 };
+        }
+        braceStack.pop();
+      }
+      
+      if (char === '(') {
+        parenStack.push({ line: i + 1, col: j + 1 });
+      } else if (char === ')') {
+        if (parenStack.length === 0) {
+          return { error: `Mismatched closing parenthesis ')' at line ${i + 1}, column ${j + 1}`, line: i + 1 };
+        }
+        parenStack.pop();
+      }
+    }
+  }
+  
+  if (inMultiLineComment) {
+    return { error: "Unclosed block comment (/*)", line: lines.length };
+  }
+  if (inString) {
+    return { error: "Unclosed string literal", line: lines.length };
+  }
+  if (braceStack.length > 0) {
+    const lastBrace = braceStack[braceStack.length - 1];
+    return { error: `Unclosed curly brace '{' starting at line ${lastBrace.line}, column ${lastBrace.col}`, line: lastBrace.line };
+  }
+  if (parenStack.length > 0) {
+    const lastParen = parenStack[parenStack.length - 1];
+    return { error: `Unclosed parenthesis '(' starting at line ${lastParen.line}, column ${lastParen.col}`, line: lastParen.line };
+  }
+  
+  try {
+    let cleanCode = code
+      .replace(/\/\/.*$/gm, "") 
+      .replace(/\/\*[\s\S]*?\*\//g, ""); 
+    
+    let tempCode = cleanCode;
+    tempCode = tempCode.replace(/^\s*package\s+[A-Za-z0-9_.]+\s*;/gm, "");
+    tempCode = tempCode.replace(/^\s*import\s+[A-Za-z0-9_.*]+\s*;/gm, "");
+    
+    const classDeclRegex = /(?:(public|protected|private)\s+)?(?:(abstract)\s+)?(class|interface)\s+([A-Za-z0-9_]+)/g;
+    let classMatch;
+    let lastIdx = 0;
+    let strippedCode = "";
+    
+    classDeclRegex.lastIndex = 0;
+    while ((classMatch = classDeclRegex.exec(tempCode)) !== null) {
+      strippedCode += tempCode.substring(lastIdx, classMatch.index);
+      const searchStart = classMatch.index + classMatch[0].length;
+      const openBraceIdx = tempCode.indexOf("{", searchStart);
+      if (openBraceIdx === -1) {
+        return { error: `Class/Interface declaration '${classMatch[4]}' is missing body opening brace '{'`, line: 1 };
+      }
+      
+      let depth = 1;
+      let closeBraceIdx = -1;
+      for (let i = openBraceIdx + 1; i < tempCode.length; i++) {
+        if (tempCode[i] === '{') depth++;
+        else if (tempCode[i] === '}') {
+          depth--;
+          if (depth === 0) {
+            closeBraceIdx = i;
+            break;
+          }
+        }
+      }
+      
+      if (closeBraceIdx === -1) {
+        return { error: `Class/Interface '${classMatch[4]}' body is missing closing brace '}'`, line: 1 };
+      }
+      lastIdx = closeBraceIdx + 1;
+    }
+    strippedCode += tempCode.substring(lastIdx);
+    
+    if (strippedCode.trim().length > 0) {
+      const leftover = strippedCode.trim();
+      const truncatedLeftover = leftover.length > 30 ? leftover.substring(0, 30) + "..." : leftover;
+      return { error: `Unexpected top-level code or token: '${truncatedLeftover}'`, line: 1 };
+    }
+  } catch (err) {
+    return { error: `Syntax error during top-level scan: ${err.message}`, line: 1 };
+  }
+  
+  try {
+    const classes = javaToUmlClasses(code);
+    const err = validateProposedClasses(classes);
+    if (err) {
+      return { error: err, line: 1 };
+    }
+  } catch (err) {
+    return { error: `Parser error: ${err.message}`, line: 1 };
+  }
+  
+  return null;
 };
 
 const analyzeRelationships = (classes) => {
@@ -431,8 +809,20 @@ const analyzeRelationships = (classes) => {
   
   classes.forEach(c => {
     // 1. Inheritance
-    if (c.extends) {
+    if (c.type === 'class' && c.extends) {
       relations.push({ source: c.title, target: c.extends, type: 'extends' });
+    }
+    if (c.type === 'interface' && c.extendsInterfaces && c.extendsInterfaces.length > 0) {
+      c.extendsInterfaces.forEach(parent => {
+        relations.push({ source: c.title, target: parent, type: 'extends' });
+      });
+    }
+    
+    // Realization (implements)
+    if (c.implements && c.implements.length > 0) {
+      c.implements.forEach(imp => {
+        relations.push({ source: c.title, target: imp, type: 'implements' });
+      });
     }
     
     // 2. Attributes (Composition, Aggregation, Association)
@@ -498,55 +888,12 @@ const analyzeRelationships = (classes) => {
 export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const [code, setCode] = useState(initialCode || EXAMPLES[0].code);
-  const [umlClasses, setUmlClasses] = useState(javaToUmlClasses(initialCode || EXAMPLES[0].code));
-  const [activeExampleIndex, setActiveExampleIndex] = useState(initialCode ? -1 : 0);
-
-  // Load initialCode when the dialog opens with new code
-  useEffect(() => {
-    if (open && initialCode) {
-      let mainClassStr = "";
-      let remainingCode = initialCode;
-
-      const classMainRegex = /(?:public\s+)?class\s+Main\b[^{]*\{/;
-      const match = classMainRegex.exec(initialCode);
-
-      if (match) {
-        const startIndex = match.index;
-        const openBraceIdx = initialCode.indexOf('{', startIndex);
-        
-        if (openBraceIdx !== -1) {
-          let depth = 1;
-          let closeBraceIdx = -1;
-          for (let i = openBraceIdx + 1; i < initialCode.length; i++) {
-            if (initialCode[i] === '{') depth++;
-            else if (initialCode[i] === '}') {
-              depth--;
-              if (depth === 0) {
-                closeBraceIdx = i;
-                break;
-              }
-            }
-          }
-          if (closeBraceIdx !== -1) {
-            mainClassStr = initialCode.substring(startIndex, closeBraceIdx + 1);
-            remainingCode = initialCode.substring(0, startIndex) + initialCode.substring(closeBraceIdx + 1);
-          }
-        }
-      }
-
-      if (!mainClassStr) {
-        mainClassStr = "public class Main {\npublic static void main(String[] args){\n}\n}";
-      }
-
-      const finalCode = remainingCode.trim();
-      setCode(finalCode);
-      setUmlClasses(javaToUmlClasses(finalCode));
-      setActiveExampleIndex(-1);
-      setMainCode(mainClassStr);
-    }
-  }, [open, initialCode]);
+  const [code, setCode] = useState(EXAMPLES[0].code);
+  const [umlClasses, setUmlClasses] = useState(javaToUmlClasses(EXAMPLES[0].code));
+  const [syntaxError, setSyntaxError] = useState(null);
+  const [activeExampleIndex, setActiveExampleIndex] = useState(0);
 
   const [activeTab, setActiveTab] = useState('uml'); // 'uml' | 'runner'
   const [activeCodeTab, setActiveCodeTab] = useState('classes'); // 'classes' | 'runner'
@@ -556,7 +903,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
   const [isRunning, setIsRunning] = useState(false);
 
   const [isEditorReady, setIsEditorReady] = useState(false);
-  const [splitPercent, setSplitPercent] = useState(55);
+  const [splitPercent, setSplitPercent] = useState(35);
 
   // 2D Interactive Canvas States
   const [classPositions, setClassPositions] = useState({});
@@ -572,7 +919,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
   const [newRelationType, setNewRelationType] = useState('extends');
 
   // Zoom and Preview States
-  const [zoomScale, setZoomScale] = useState(1.0);
+  const [zoomScale, setZoomScale] = useState(window.innerWidth <= 900 ? 0.4 : 1.0);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewZoomScale, setPreviewZoomScale] = useState(1.0);
   const [isWaitingForInput, setIsWaitingForInput] = useState(false);
@@ -594,6 +941,86 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
   const isPanningPreviewRef = useRef(false);
   const panStartPreviewRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
   const previewCanvasContainerRef = useRef(null);
+  const zoomAnchorRef = useRef(null);
+  const previewZoomAnchorRef = useRef(null);
+
+  // Validate syntax on mount to check initial preloaded code state
+  useEffect(() => {
+    const err = checkJavaSyntax(code);
+    setSyntaxError(err);
+  }, []);
+
+  useEffect(() => {
+    if (open && initialCode) {
+      let foundMainCode = '';
+      let foundCode = initialCode;
+      
+      const mainIdx = initialCode.indexOf('public static void main');
+      if (mainIdx !== -1) {
+        const classIdx = initialCode.lastIndexOf('class ', mainIdx);
+        if (classIdx !== -1) {
+          const publicIdx = initialCode.lastIndexOf('public ', classIdx);
+          const startIdx = (publicIdx !== -1 && publicIdx > classIdx - 10) ? publicIdx : classIdx;
+          foundMainCode = initialCode.substring(startIdx).trim();
+          foundCode = initialCode.substring(0, startIdx).trim();
+        }
+      }
+      
+      if (foundMainCode) {
+        setMainCode(foundMainCode);
+        setCode(foundCode || '// Define your classes here');
+        setUmlClasses(javaToUmlClasses(foundCode || ''));
+      } else {
+        setCode(initialCode);
+        setUmlClasses(javaToUmlClasses(initialCode));
+        setMainCode('public class Runner {\n    public static void main(String[] args) {\n        // Your test code here\n    }\n}');
+      }
+      setActiveExampleIndex(-1);
+    } else if (open && !initialCode) {
+      setCode(EXAMPLES[0].code);
+      setUmlClasses(javaToUmlClasses(EXAMPLES[0].code));
+      setMainCode(EXAMPLES[0].mainCode);
+      setActiveExampleIndex(0);
+    }
+  }, [initialCode, open]);
+
+  // Zoom scroll positioning adjustments to keep zoom center aligned
+  useEffect(() => {
+    if (zoomAnchorRef.current && canvasContainerRef.current) {
+      const { x_virtual, y_virtual, mx, my } = zoomAnchorRef.current;
+      canvasContainerRef.current.scrollLeft = x_virtual * zoomScale - mx;
+      canvasContainerRef.current.scrollTop = y_virtual * zoomScale - my;
+      zoomAnchorRef.current = null;
+    }
+  }, [zoomScale]);
+
+  useEffect(() => {
+    if (previewZoomAnchorRef.current && previewCanvasContainerRef.current) {
+      const { x_virtual, y_virtual, mx, my } = previewZoomAnchorRef.current;
+      previewCanvasContainerRef.current.scrollLeft = x_virtual * previewZoomScale - mx;
+      previewCanvasContainerRef.current.scrollTop = y_virtual * previewZoomScale - my;
+      previewZoomAnchorRef.current = null;
+    }
+  }, [previewZoomScale]);
+
+  const getCanvasDimensions = () => {
+    let maxX = 1500;
+    let maxY = 1200;
+    umlClasses.forEach(c => {
+      const pos = classPositions[c.title];
+      if (pos) {
+        const cardW = calculateCardWidth(c);
+        if (pos.x + cardW + 300 > maxX) {
+          maxX = pos.x + cardW + 300;
+        }
+        if (pos.y + 320 + 300 > maxY) {
+          maxY = pos.y + 320 + 300;
+        }
+      }
+    });
+    return { width: maxX, height: maxY };
+  };
+  const canvasDim = getCanvasDimensions();
 
   // Pre-fill attribute name for composition relationship
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -710,8 +1137,19 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
     const handleWheel = (e) => {
       if (e.ctrlKey) {
         e.preventDefault();
+        const rect = container.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const x_virtual = (container.scrollLeft + mx) / zoomScale;
+        const y_virtual = (container.scrollTop + my) / zoomScale;
+        zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+
         const step = 0.05;
-        setZoomScale(prev => Math.max(0.4, Math.min(2.0, prev + (e.deltaY < 0 ? step : -step))));
+        const containerW = container.clientWidth;
+        const containerH = container.clientHeight;
+        const currentMinZoom = parseFloat(Math.min(0.4, Math.max(0.1, Math.min(containerW / canvasDim.width, containerH / canvasDim.height))).toFixed(2));
+
+        setZoomScale(prev => Math.max(currentMinZoom, Math.min(2.0, prev + (e.deltaY < 0 ? step : -step))));
       }
     };
 
@@ -719,7 +1157,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
     return () => {
       container.removeEventListener('wheel', handleWheel);
     };
-  }, [canvasContainerRef.current]);
+  }, [canvasContainerRef.current, zoomScale, canvasDim.width, canvasDim.height]);
 
   useEffect(() => {
     const container = previewCanvasContainerRef.current;
@@ -728,8 +1166,19 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
     const handleWheel = (e) => {
       if (e.ctrlKey) {
         e.preventDefault();
+        const rect = container.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const x_virtual = (container.scrollLeft + mx) / previewZoomScale;
+        const y_virtual = (container.scrollTop + my) / previewZoomScale;
+        previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+
         const step = 0.05;
-        setPreviewZoomScale(prev => Math.max(0.4, Math.min(2.0, prev + (e.deltaY < 0 ? step : -step))));
+        const containerW = container.clientWidth;
+        const containerH = container.clientHeight;
+        const currentMinZoom = parseFloat(Math.min(0.4, Math.max(0.1, Math.min(containerW / canvasDim.width, containerH / canvasDim.height))).toFixed(2));
+
+        setPreviewZoomScale(prev => Math.max(currentMinZoom, Math.min(2.0, prev + (e.deltaY < 0 ? step : -step))));
       }
     };
 
@@ -737,7 +1186,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
     return () => {
       container.removeEventListener('wheel', handleWheel);
     };
-  }, [previewCanvasContainerRef.current, isPreviewOpen]);
+  }, [previewCanvasContainerRef.current, isPreviewOpen, previewZoomScale, canvasDim.width, canvasDim.height]);
 
   // Clear editor references on tab change to prevent calling methods on unmounted/disposed editor instances
   useEffect(() => {
@@ -747,16 +1196,34 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
   }, [activeTab]);
 
   // Position assigner/cleaner
+  const findFirstEmptySlot = (currentPositions) => {
+    let row = 0;
+    while (true) {
+      for (let col = 0; col < 3; col++) {
+        const slotX = 50 + col * 420;
+        const slotY = 50 + row * 460;
+        
+        // Check if any class is close to this slot
+        const isOccupied = Object.values(currentPositions).some(pos => {
+          const dx = pos.x - slotX;
+          const dy = pos.y - slotY;
+          return dx * dx + dy * dy < 200 * 200; // overlap threshold
+        });
+        
+        if (!isOccupied) {
+          return { x: slotX, y: slotY };
+        }
+      }
+      row++;
+    }
+  };
+
   useEffect(() => {
     let updated = false;
     const newPositions = { ...classPositions };
-    umlClasses.forEach((c, idx) => {
+    umlClasses.forEach((c) => {
       if (!newPositions[c.title]) {
-        // Space them out in a clean 3-column grid layout by default
-        newPositions[c.title] = {
-          x: 40 + (idx % 3) * 320,
-          y: 40 + Math.floor(idx / 3) * 360
-        };
+        newPositions[c.title] = findFirstEmptySlot(newPositions);
         updated = true;
       }
     });
@@ -779,11 +1246,9 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
     if (!draggingClass) return;
 
     const handleMouseMove = (e) => {
-      // Keep inside bounds of 1500x1200 virtual canvas
-      const currentClass = umlClasses.find(x => x.title === draggingClass);
-      const cardW = currentClass ? calculateCardWidth(currentClass) : 280;
-      const newX = Math.max(0, Math.min(1500 - cardW, e.clientX / zoomScale - dragStartOffset.current.x));
-      const newY = Math.max(0, Math.min(1200 - 320, e.clientY / zoomScale - dragStartOffset.current.y));
+      // Keep inside bounds of virtual canvas (unclamped on right/bottom to allow growth)
+      const newX = Math.max(0, e.clientX / zoomScale - dragStartOffset.current.x);
+      const newY = Math.max(0, e.clientY / zoomScale - dragStartOffset.current.y);
       setClassPositions(prev => ({
         ...prev,
         [draggingClass]: { x: newX, y: newY }
@@ -878,8 +1343,26 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
       const sourceClass = umlClasses[sourceIdx];
       const fieldName = newFieldName.trim() || `${target.charAt(0).toLowerCase() + target.slice(1)}`;
       
+      let newClasses = [...umlClasses];
+      
       if (newRelationType === 'extends') {
-        updateClassExtends(sourceIdx, target);
+        newClasses = umlClasses.map((c, idx) => {
+          if (idx === sourceIdx) {
+            if (c.type === 'interface') {
+              return { ...c, extends: null, extendsInterfaces: [...(c.extendsInterfaces || []), target] };
+            }
+            return { ...c, extends: target };
+          }
+          return c;
+        });
+      } else if (newRelationType === 'implements') {
+        const implementsList = sourceClass.implements || [];
+        if (!implementsList.includes(target)) {
+          newClasses = umlClasses.map((c, idx) => {
+            if (idx === sourceIdx) return { ...c, implements: [...implementsList, target] };
+            return c;
+          });
+        }
       } else if (newRelationType === 'composition' || newRelationType === 'aggregation' || newRelationType === 'association') {
         const newAttributes = [
           ...sourceClass.attributes,
@@ -917,11 +1400,10 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
           }
         }
         
-        const newClasses = umlClasses.map((c, idx) => {
+        newClasses = umlClasses.map((c, idx) => {
           if (idx === sourceIdx) return { ...c, attributes: newAttributes, methods: newMethods };
           return c;
         });
-        handleUmlClassesChange(newClasses);
       } else if (newRelationType === 'dependency') {
         // Add dependency method parameter
         const newMethods = [
@@ -936,12 +1418,19 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
             body: `\n        // Dependency: USES-A relationship with ${target}\n        System.out.println("Using " + ${fieldName});\n    `
           }
         ];
-        const newClasses = umlClasses.map((c, idx) => {
+        newClasses = umlClasses.map((c, idx) => {
           if (idx === sourceIdx) return { ...c, methods: newMethods };
           return c;
         });
-        handleUmlClassesChange(newClasses);
       }
+
+      const err = validateProposedClasses(newClasses);
+      if (err) {
+        alert(`Invalid Relationship Connection: ${err}`);
+        return;
+      }
+
+      handleUmlClassesChange(newClasses);
     }
 
     setIsConnectionDialogOpen(false);
@@ -957,14 +1446,29 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
     return 120 + attrLen * 34 + methLen * 34;
   };
 
-  const getBestConnectionPoints = (posA, posB) => {
+  const getEstimatedCompressedHeight = (title) => {
+    const c = umlClasses.find(x => x.title === title);
+    if (!c) return 180;
+    const attrLen = c.attributes?.length || 0;
+    const methLen = c.methods?.length || 0;
+    return 80 + attrLen * 20 + methLen * 20;
+  };
+
+  const getBestConnectionPoints = (posA, posB, useCompressed = false, allRelations = [], currentRelation = null) => {
     if (!posA || !posB) return { start: { x: 0, y: 0 }, end: { x: 0, y: 0 } };
     const classA = umlClasses.find(x => x.title === posA.title);
     const classB = umlClasses.find(x => x.title === posB.title);
-    const wA = classA ? calculateCardWidth(classA) : 280;
-    const wB = classB ? calculateCardWidth(classB) : 280;
-    const hA = getEstimatedHeight(posA.title);
-    const hB = getEstimatedHeight(posB.title);
+    
+    // Attempt to query actual DOM elements
+    const selectorA = useCompressed ? `.uml-preview-card[data-classname="${posA.title}"]` : `.uml-class-card[data-classname="${posA.title}"]`;
+    const selectorB = useCompressed ? `.uml-preview-card[data-classname="${posB.title}"]` : `.uml-class-card[data-classname="${posB.title}"]`;
+    const elA = document.querySelector(selectorA);
+    const elB = document.querySelector(selectorB);
+    
+    const wA = elA ? elA.offsetWidth : (classA ? (useCompressed ? calculateCompressedCardWidth(classA) : calculateCardWidth(classA)) : 280);
+    const wB = elB ? elB.offsetWidth : (classB ? (useCompressed ? calculateCompressedCardWidth(classB) : calculateCardWidth(classB)) : 280);
+    const hA = elA ? elA.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(posA.title) : getEstimatedHeight(posA.title));
+    const hB = elB ? elB.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(posB.title) : getEstimatedHeight(posB.title));
 
     const anchorsA = [
       { x: posA.x + wA / 2, y: posA.y, side: 'top' },
@@ -993,6 +1497,126 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
           minDist = dist;
           bestA = a;
           bestB = b;
+        }
+      }
+    }
+
+    // Distribute connections if multiple share same target side
+    if (allRelations && allRelations.length > 0) {
+      const targetRelations = allRelations.filter(r => r.target === posB.title);
+      const sameSideSources = [];
+      
+      targetRelations.forEach(r => {
+        const srcClass = umlClasses.find(c => c.title === r.source);
+        if (!srcClass) return;
+        const srcPos = classPositions[r.source];
+        if (!srcPos) return;
+        
+        const elSrc = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${r.source}"]` : `.uml-class-card[data-classname="${r.source}"]`);
+        const wSrc = elSrc ? elSrc.offsetWidth : (useCompressed ? calculateCompressedCardWidth(srcClass) : calculateCardWidth(srcClass));
+        const hSrc = elSrc ? elSrc.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(r.source) : getEstimatedHeight(r.source));
+        const srcCenter = { x: srcPos.x + wSrc / 2, y: srcPos.y + hSrc / 2 };
+        
+        let closestSide = 'top';
+        let minSideDist = Infinity;
+        
+        anchorsB.forEach(anchor => {
+          const dx = anchor.x - srcCenter.x;
+          const dy = anchor.y - srcCenter.y;
+          const dist = dx * dx + dy * dy;
+          if (dist < minSideDist) {
+            minSideDist = dist;
+            closestSide = anchor.side;
+          }
+        });
+        
+        if (closestSide === bestB.side) {
+          const relId = `${r.source}_${r.target}_${r.type}_${r.fieldName || r.methodName || ''}`;
+          sameSideSources.push(relId);
+        }
+      });
+      
+      sameSideSources.sort();
+      
+      const currentRelId = currentRelation 
+        ? `${currentRelation.source}_${currentRelation.target}_${currentRelation.type}_${currentRelation.fieldName || currentRelation.methodName || ''}`
+        : `${posA.title}_${posB.title}_extends_`;
+      
+      const sourceIdx = sameSideSources.indexOf(currentRelId);
+      const totalCount = sameSideSources.length;
+      
+      if (totalCount > 1 && sourceIdx !== -1) {
+        const factor = (sourceIdx + 1) / (totalCount + 1);
+        if (bestB.side === 'top' || bestB.side === 'bottom') {
+          bestB = {
+            ...bestB,
+            x: posB.x + wB * factor
+          };
+        } else {
+          bestB = {
+            ...bestB,
+            y: posB.y + hB * factor
+          };
+        }
+      }
+    }
+
+    // Distribute connections if multiple share same source side
+    if (allRelations && allRelations.length > 0) {
+      const sourceRelations = allRelations.filter(r => r.source === posA.title);
+      const sameSideTargets = [];
+      
+      sourceRelations.forEach(r => {
+        const destClass = umlClasses.find(c => c.title === r.target);
+        if (!destClass) return;
+        const destPos = classPositions[r.target];
+        if (!destPos) return;
+        
+        const elDest = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${r.target}"]` : `.uml-class-card[data-classname="${r.target}"]`);
+        const wDest = elDest ? elDest.offsetWidth : (useCompressed ? calculateCompressedCardWidth(destClass) : calculateCardWidth(destClass));
+        const hDest = elDest ? elDest.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(r.target) : getEstimatedHeight(r.target));
+        const destCenter = { x: destPos.x + wDest / 2, y: destPos.y + hDest / 2 };
+        
+        let closestSide = 'top';
+        let minSideDist = Infinity;
+        
+        anchorsA.forEach(anchor => {
+          const dx = anchor.x - destCenter.x;
+          const dy = anchor.y - destCenter.y;
+          const dist = dx * dx + dy * dy;
+          if (dist < minSideDist) {
+            minSideDist = dist;
+            closestSide = anchor.side;
+          }
+        });
+        
+        if (closestSide === bestA.side) {
+          const relId = `${r.source}_${r.target}_${r.type}_${r.fieldName || r.methodName || ''}`;
+          sameSideTargets.push(relId);
+        }
+      });
+      
+      sameSideTargets.sort();
+      
+      const currentRelId = currentRelation 
+        ? `${currentRelation.source}_${currentRelation.target}_${currentRelation.type}_${currentRelation.fieldName || currentRelation.methodName || ''}`
+        : `${posA.title}_${posB.title}_extends_`;
+      
+      const targetIdx = sameSideTargets.indexOf(currentRelId);
+      const totalCount = sameSideTargets.length;
+      
+      if (totalCount > 1 && targetIdx !== -1) {
+        const factor = (targetIdx + 1) / (totalCount + 1);
+        if (bestA.side === 'top' || bestA.side === 'bottom') {
+          bestA = {
+            ...bestA,
+            x: posA.x + wA * factor
+          };
+        } else {
+          bestA = {
+            ...bestA,
+            y: posA.y + hA * factor
+          };
         }
       }
     }
@@ -1123,7 +1747,13 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
     }, 1000);
 
     setCode(newCode);
+
+    const err = checkJavaSyntax(newCode);
+    setSyntaxError(err);
+
     if (internalUpdateRef.current) return;
+    if (err) return;
+
     try {
       const parsedClasses = javaToUmlClasses(newCode);
       setUmlClasses(parsedClasses);
@@ -1161,6 +1791,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
     const ex = EXAMPLES[idx];
     setClassPositions({}); // Clear positions so examples position correctly
     setCode(ex.code);
+    setSyntaxError(null);
     setUmlClasses(javaToUmlClasses(ex.code));
     setMainCode(ex.mainCode);
 
@@ -1180,7 +1811,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
     const newClassName = `NewClass${umlClasses.length + 1}`;
     const newClasses = [
       ...umlClasses,
-      { title: newClassName, abstract: false, extends: null, attributes: [], methods: [] }
+      { title: newClassName, abstract: false, extends: null, extendsInterfaces: [], attributes: [], methods: [], type: 'class', implements: [] }
     ];
     handleUmlClassesChange(newClasses);
   };
@@ -1200,9 +1831,20 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
 
   const updateClassExtends = (classIdx, parentName) => {
     const newClasses = umlClasses.map((c, idx) => {
-      if (idx === classIdx) return { ...c, extends: parentName };
+      if (idx === classIdx) {
+        if (c.type === 'interface') {
+          // Interfaces use extendsInterfaces, but we sync both just in case
+          return { ...c, extends: null, extendsInterfaces: parentName ? [parentName] : [] };
+        }
+        return { ...c, extends: parentName };
+      }
       return c;
     });
+    const err = validateProposedClasses(newClasses);
+    if (err) {
+      alert(`Invalid Inheritance: ${err}`);
+      return;
+    }
     handleUmlClassesChange(newClasses);
   };
 
@@ -1211,6 +1853,75 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
       if (idx === classIdx) return { ...c, abstract: isAbstract };
       return c;
     });
+    handleUmlClassesChange(newClasses);
+  };
+
+  const updateClassType = (classIdx, newType) => {
+    const newClasses = umlClasses.map((c, idx) => {
+      if (idx === classIdx) {
+        let isAbstract = c.abstract;
+        let finalType = newType;
+        let ext = c.extends;
+        let extInterfaces = c.extendsInterfaces || [];
+        let impls = c.implements || [];
+
+        if (newType === 'interface') {
+          isAbstract = false;
+          finalType = 'interface';
+          // Convert implements list to extendsInterfaces list for interface
+          if (impls.length > 0) {
+            extInterfaces = [...impls];
+          }
+          impls = [];
+          ext = null;
+        } else if (newType === 'abstract') {
+          finalType = 'class';
+          isAbstract = true;
+          // Convert extendsInterfaces list to implements list for class
+          if (extInterfaces.length > 0) {
+            impls = [...extInterfaces];
+          }
+          extInterfaces = [];
+          ext = null;
+        } else {
+          finalType = 'class';
+          isAbstract = false;
+          if (extInterfaces.length > 0) {
+            impls = [...extInterfaces];
+          }
+          extInterfaces = [];
+          ext = null;
+        }
+
+        return { 
+          ...c, 
+          type: finalType, 
+          abstract: isAbstract,
+          extends: ext,
+          extendsInterfaces: extInterfaces,
+          implements: impls
+        };
+      }
+      return c;
+    });
+    const err = validateProposedClasses(newClasses);
+    if (err) {
+      alert(`Invalid Type Change: ${err}`);
+      return;
+    }
+    handleUmlClassesChange(newClasses);
+  };
+
+  const updateClassImplements = (classIdx, implementsList) => {
+    const newClasses = umlClasses.map((c, idx) => {
+      if (idx === classIdx) return { ...c, implements: implementsList };
+      return c;
+    });
+    const err = validateProposedClasses(newClasses);
+    if (err) {
+      alert(`Invalid Implementation: ${err}`);
+      return;
+    }
     handleUmlClassesChange(newClasses);
   };
 
@@ -1237,10 +1948,23 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
         });
         return { ...c, title: newTitle, methods: updatedMethods };
       }
-      if (c.extends === oldTitle) {
-        return { ...c, extends: newTitle };
+      
+      let updatedExtendsInterfaces = c.extendsInterfaces || [];
+      if (updatedExtendsInterfaces.includes(oldTitle)) {
+        updatedExtendsInterfaces = updatedExtendsInterfaces.map(x => x === oldTitle ? newTitle : x);
       }
-      return c;
+      
+      let updatedImplements = c.implements || [];
+      if (updatedImplements.includes(oldTitle)) {
+        updatedImplements = updatedImplements.map(x => x === oldTitle ? newTitle : x);
+      }
+
+      return {
+        ...c,
+        extends: c.extends === oldTitle ? newTitle : c.extends,
+        extendsInterfaces: updatedExtendsInterfaces,
+        implements: updatedImplements
+      };
     });
     handleUmlClassesChange(newClasses);
   };
@@ -1390,6 +2114,16 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
     }
   };
 
+
+
+  const containerW = canvasContainerRef.current ? canvasContainerRef.current.clientWidth : 800;
+  const containerH = canvasContainerRef.current ? canvasContainerRef.current.clientHeight : 600;
+  const dynamicMinZoom = parseFloat(Math.min(0.4, Math.max(0.1, Math.min(containerW / canvasDim.width, containerH / canvasDim.height))).toFixed(2));
+
+  const previewContainerW = previewCanvasContainerRef.current ? previewCanvasContainerRef.current.clientWidth : 1000;
+  const previewContainerH = previewCanvasContainerRef.current ? previewCanvasContainerRef.current.clientHeight : 800;
+  const dynamicPreviewMinZoom = parseFloat(Math.min(0.4, Math.max(0.1, Math.min(previewContainerW / canvasDim.width, previewContainerH / canvasDim.height))).toFixed(2));
+
   return (
     <>
       <Dialog
@@ -1404,15 +2138,18 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
           backdropFilter: 'blur(20px)',
           border: '1px solid rgba(255,255,255,0.08)',
           boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+          height: '95vh',
           maxHeight: '95vh',
-          width: '95vw'
+          width: '95vw',
+          display: 'flex',
+          flexDirection: 'column'
         }
       }}
     >
-      <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexWrap: 'wrap', gap: '12px' }}>
+      <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: isMobile ? '8px 12px' : '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexWrap: 'wrap', gap: isMobile ? '6px' : '12px' }}>
         <Box style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <SyncIcon style={{ color: 'var(--primary-main)' }} />
-          <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif' }}>
+          <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', fontSize: isMobile ? '0.9rem' : '1.25rem' }}>
             Interactive Java OOP & UML Playground
           </Typography>
         </Box>
@@ -1427,12 +2164,12 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
               runnerEditorRef.current = null;
             }}
             style={{
-              padding: '6px 14px',
+              padding: isMobile ? '4px 10px' : '6px 14px',
               borderRadius: '8px',
               border: 'none',
               background: activeTab === 'uml' ? 'var(--primary-main)' : 'transparent',
               color: activeTab === 'uml' ? '#fff' : 'var(--text-secondary)',
-              fontSize: '0.8rem',
+              fontSize: isMobile ? '0.65rem' : '0.8rem',
               fontWeight: 850,
               cursor: 'pointer',
               transition: 'all 0.25s ease'
@@ -1448,12 +2185,12 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
               runnerEditorRef.current = null;
             }}
             style={{
-              padding: '6px 14px',
+              padding: isMobile ? '4px 10px' : '6px 14px',
               borderRadius: '8px',
               border: 'none',
               background: activeTab === 'runner' ? 'var(--primary-main)' : 'transparent',
               color: activeTab === 'runner' ? '#fff' : 'var(--text-secondary)',
-              fontSize: '0.8rem',
+              fontSize: isMobile ? '0.65rem' : '0.8rem',
               fontWeight: 850,
               cursor: 'pointer',
               transition: 'all 0.25s ease'
@@ -1468,48 +2205,10 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
         </IconButton>
       </DialogTitle>
 
-      <DialogContent style={{ padding: '24px', overflowY: 'auto' }}>
-        {activeTab === 'uml' && (
-          <Box style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '16px' }}>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => {
-                setPreviewZoomScale(zoomScale);
-                setIsPreviewOpen(true);
-              }}
-              startIcon={<PreviewIcon />}
-              style={{
-                borderRadius: '8px',
-                fontWeight: 800,
-                fontSize: '0.75rem',
-                borderColor: 'var(--primary-main)',
-                color: 'var(--primary-main)'
-              }}
-            >
-              Preview UML
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={addClass}
-              startIcon={<AddIcon />}
-              style={{
-                borderRadius: '8px',
-                fontWeight: 800,
-                fontSize: '0.75rem',
-                borderColor: 'var(--primary-main)',
-                color: 'var(--primary-main)'
-              }}
-            >
-              Create New Class
-            </Button>
-          </Box>
-        )}
-
-        <Box id="split-container" style={{ display: 'flex', flexDirection: 'row', height: '580px', width: '100%', alignItems: 'stretch', position: 'relative' }}>
+      <DialogContent style={{ padding: isMobile ? '12px' : '24px', overflow: isMobile ? 'auto' : 'hidden', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+        <Box id="split-container" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flexGrow: 1, width: '100%', alignItems: 'stretch', position: 'relative', minHeight: 0, gap: isMobile ? '16px' : '0' }}>
           {/* Left Pane: Code Editor with VS Code-style tabs */}
-          <Box style={{ width: `${splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '200px', height: '100%' }}>
+          <Box style={{ width: isMobile ? '100%' : `${splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: isMobile ? '0' : '200px', height: isMobile ? 'auto' : '100%', minHeight: isMobile ? '400px' : 0 }}>
             <Box style={{
               borderRadius: '16px',
               overflow: 'hidden',
@@ -1538,7 +2237,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      padding: '8px 16px',
+                      padding: isMobile ? '6px 10px' : '8px 16px',
                       cursor: 'pointer',
                       borderBottom: activeCodeTab === 'classes' ? `2px solid ${theme.palette.primary.main}` : '2px solid transparent',
                       backgroundColor: activeCodeTab === 'classes' 
@@ -1554,7 +2253,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                       fontWeight: activeCodeTab === 'classes' ? 800 : 600, 
                       color: activeCodeTab === 'classes' ? (isDarkMode ? '#fff' : '#000') : 'var(--text-secondary)',
                       fontFamily: 'monospace',
-                      fontSize: '0.75rem'
+                      fontSize: isMobile ? '0.6rem' : '0.75rem'
                     }}>
                       Classes.java
                     </Typography>
@@ -1566,7 +2265,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      padding: '8px 16px',
+                      padding: isMobile ? '6px 10px' : '8px 16px',
                       cursor: 'pointer',
                       borderBottom: activeCodeTab === 'runner' ? `2px solid ${theme.palette.primary.main}` : '2px solid transparent',
                       backgroundColor: activeCodeTab === 'runner' 
@@ -1577,12 +2276,12 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                       userSelect: 'none'
                     }}
                   >
-                    <PlayArrowIcon style={{ color: '#3DDC97', fontSize: '0.9rem' }} />
+                    <PlayIcon style={{ color: '#3DDC97', fontSize: '0.9rem' }} />
                     <Typography variant="caption" style={{ 
                       fontWeight: activeCodeTab === 'runner' ? 800 : 600, 
                       color: activeCodeTab === 'runner' ? (isDarkMode ? '#fff' : '#000') : 'var(--text-secondary)',
                       fontFamily: 'monospace',
-                      fontSize: '0.75rem'
+                      fontSize: isMobile ? '0.6rem' : '0.75rem'
                     }}>
                       Runner.java
                     </Typography>
@@ -1656,13 +2355,15 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
           <Box
             onMouseDown={(e) => {
               e.preventDefault();
+              if (isMobile) return;
               isDraggingSplitRef.current = true;
               document.body.style.cursor = 'col-resize';
               document.body.style.userSelect = 'none';
             }}
             style={{
+              display: isMobile ? 'none' : 'flex',
               width: '8px',
-              cursor: 'col-resize',
+              cursor: isMobile ? 'default' : 'col-resize',
               backgroundColor: 'transparent',
               position: 'relative',
               zIndex: 10,
@@ -1689,123 +2390,236 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
 
           {/* Right Pane: Swappable Tab Views (UML Class Lab vs. Code Runner) */}
           {activeTab === 'uml' ? (
-            <Box style={{ width: `${100 - splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px', height: '100%' }}>
+            <Box style={{ width: isMobile ? '100%' : `${100 - splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: isMobile ? '0' : '200px', height: isMobile ? '500px' : '100%', minHeight: isMobile ? '500px' : 0 }}>
               <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                   Interactive 2D UML Map
                 </Typography>
-                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.68rem', fontWeight: 700 }}>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.68rem', fontWeight: 700, display: isMobile ? 'none' : 'block' }}>
                   Drag card headers to arrange them • Drag border circles to link classes
                 </Typography>
               </Box>
 
-              <Paper
-                id="uml-canvas-container"
-                ref={canvasContainerRef}
-                onMouseDown={handleCanvasMouseDown}
-                elevation={0}
-                style={{
-                  background: isDarkMode ? '#0b0f19' : '#f3f4f6',
-                  border: isDarkMode ? '1.5px solid rgba(255,255,255,0.06)' : '1.5px solid rgba(0,0,0,0.08)',
-                  borderRadius: '16px',
-                  height: '100%',
-                  width: '100%',
-                  position: 'relative',
-                  overflow: 'auto',
-                  boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.15)',
-                  cursor: 'grab'
-                }}
-              >
-                {/* CSS styles injection */}
-                <style dangerouslySetInnerHTML={{ __html: `
-                  .uml-port {
-                    position: absolute;
-                    width: 12px;
-                    height: 12px;
-                    border-radius: 50%;
-                    background-color: #1CB0F6;
-                    border: 2.5px solid ${isDarkMode ? '#1E1E2F' : '#FFFFFF'};
-                    cursor: crosshair;
-                    z-index: 100;
-                    transition: all 0.15s ease-in-out;
-                    box-shadow: 0 0 5px rgba(28, 176, 246, 0.4);
-                  }
-                  .uml-port-top {
-                    top: -6px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                  }
-                  .uml-port-bottom {
-                    bottom: -6px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                  }
-                  .uml-port-left {
-                    left: -6px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                  }
-                  .uml-port-right {
-                    right: -6px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                  }
-                  .uml-port:hover {
-                    background-color: #007bb5;
-                    box-shadow: 0 0 12px #1CB0F6, 0 0 5px #1CB0F6;
-                  }
-                  .uml-port-top:hover {
-                    transform: translateX(-50%) scale(1.4) !important;
-                  }
-                  .uml-port-bottom:hover {
-                    transform: translateX(-50%) scale(1.4) !important;
-                  }
-                  .uml-port-left:hover {
-                    transform: translateY(-50%) scale(1.4) !important;
-                  }
-                  .uml-port-right:hover {
-                    transform: translateY(-50%) scale(1.4) !important;
-                  }
-                `}} />
+              <Box style={{ flexGrow: 1, position: 'relative', height: '100%', width: '100%', minHeight: 0, overflow: 'hidden' }}>
+                {syntaxError ? (
+                  <Paper
+                    elevation={0}
+                    style={{
+                      background: isDarkMode ? '#0f172a' : '#f8fafc',
+                      border: isDarkMode ? '1.5px solid rgba(255,255,255,0.06)' : '1.5px solid rgba(0,0,0,0.08)',
+                      borderRadius: '16px',
+                      height: '100%',
+                      width: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '24px',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <ErrorIcon style={{ fontSize: '4.5rem', color: '#ef4444', marginBottom: '16px' }} />
+                    <Typography variant="h5" style={{ fontWeight: 800, color: isDarkMode ? '#f8fafc' : '#0f172a', marginBottom: '12px', fontFamily: '"Outfit", sans-serif' }}>
+                      Java Syntax Error Detected
+                    </Typography>
+                    <Typography variant="body1" style={{ color: 'var(--text-secondary)', marginBottom: '24px', maxWidth: '450px', fontSize: '0.9rem' }}>
+                      UML editing and interactive preview are disabled because the Java code has syntax errors. Please fix the errors in the code editor to resume UML operations.
+                    </Typography>
+                    <Box
+                      style={{
+                        background: isDarkMode ? '#1e293b' : '#f1f5f9',
+                        borderLeft: '4px solid #ef4444',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        width: '100%',
+                        maxWidth: '550px',
+                        textAlign: 'left',
+                        fontFamily: 'monospace',
+                        fontSize: '0.85rem',
+                        color: isDarkMode ? '#fca5a5' : '#b91c1c',
+                        whiteSpace: 'pre-wrap',
+                        overflowX: 'auto',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                      }}
+                    >
+                      <strong>Syntax Error:</strong> {syntaxError.error}
+                    </Box>
+                  </Paper>
+                ) : (
+                  <>
+                    {/* Floating Buttons in UML editor space */}
+                    <Box style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 200, display: 'flex', gap: '8px' }}>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={() => {
+                          setPreviewZoomScale(zoomScale);
+                          setIsPreviewOpen(true);
+                        }}
+                        startIcon={<PreviewIcon />}
+                        style={{
+                          borderRadius: '8px',
+                          fontWeight: 800,
+                          fontSize: '0.75rem',
+                          background: 'rgba(28, 176, 246, 0.9)',
+                          backdropFilter: 'blur(4px)',
+                          color: '#fff',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                          textTransform: 'none'
+                        }}
+                      >
+                        Preview UML
+                      </Button>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={addClass}
+                        startIcon={<AddIcon />}
+                        style={{
+                          borderRadius: '8px',
+                          fontWeight: 800,
+                          fontSize: '0.75rem',
+                          background: 'rgba(61, 92, 255, 0.9)',
+                          backdropFilter: 'blur(4px)',
+                          color: '#fff',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                          textTransform: 'none'
+                        }}
+                      >
+                        Create New Class
+                      </Button>
+                    </Box>
 
-                {/* Scroll container wrapper to preserve scroll bounds */}
-                <Box
+                <Paper
+                  id="uml-canvas-container"
+                  ref={canvasContainerRef}
+                  onMouseDown={handleCanvasMouseDown}
+                  elevation={0}
                   style={{
-                    width: `${1700 * zoomScale}px`,
-                    height: `${1500 * zoomScale}px`,
+                    background: isDarkMode 
+                      ? '#0f172a linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)' 
+                      : '#f8fafc linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px)',
+                    backgroundSize: '24px 24px',
+                    border: isDarkMode ? '1.5px solid rgba(255,255,255,0.06)' : '1.5px solid rgba(0,0,0,0.08)',
+                    borderRadius: '16px',
+                    height: '100%',
+                    width: '100%',
                     position: 'relative',
-                    overflow: 'hidden'
+                    overflow: 'auto',
+                    boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.15)',
+                    cursor: 'grab'
                   }}
                 >
-                  {/* Virtual Canvas Box */}
+                  {/* CSS styles injection */}
+                  <style dangerouslySetInnerHTML={{ __html: `
+                    .uml-port {
+                      position: absolute;
+                      width: 12px;
+                      height: 12px;
+                      border-radius: 50%;
+                      background-color: #1CB0F6;
+                      border: 2.5px solid ${isDarkMode ? '#1E1E2F' : '#FFFFFF'};
+                      cursor: crosshair;
+                      z-index: 100;
+                      transition: all 0.2s ease-in-out;
+                      box-shadow: 0 0 5px rgba(28, 176, 246, 0.4);
+                      opacity: 0;
+                      pointer-events: none;
+                    }
+                    .uml-class-card:hover .uml-port {
+                      opacity: 1;
+                      pointer-events: auto;
+                    }
+                    .uml-port-top {
+                      top: -6px;
+                      left: 50%;
+                      transform: translateX(-50%) scale(0.7);
+                    }
+                    .uml-class-card:hover .uml-port-top {
+                      transform: translateX(-50%) scale(1);
+                    }
+                    .uml-port-bottom {
+                      bottom: -6px;
+                      left: 50%;
+                      transform: translateX(-50%) scale(0.7);
+                    }
+                    .uml-class-card:hover .uml-port-bottom {
+                      transform: translateX(-50%) scale(1);
+                    }
+                    .uml-port-left {
+                      left: -6px;
+                      top: 50%;
+                      transform: translateY(-50%) scale(0.7);
+                    }
+                    .uml-class-card:hover .uml-port-left {
+                      transform: translateY(-50%) scale(1);
+                    }
+                    .uml-port-right {
+                      right: -6px;
+                      top: 50%;
+                      transform: translateY(-50%) scale(0.7);
+                    }
+                    .uml-class-card:hover .uml-port-right {
+                      transform: translateY(-50%) scale(1);
+                    }
+                    .uml-port:hover {
+                      background-color: #007bb5;
+                      box-shadow: 0 0 12px #1CB0F6, 0 0 5px #1CB0F6;
+                    }
+                    .uml-port-top:hover {
+                      transform: translateX(-50%) scale(1.4) !important;
+                    }
+                    .uml-port-bottom:hover {
+                      transform: translateX(-50%) scale(1.4) !important;
+                    }
+                    .uml-port-left:hover {
+                      transform: translateY(-50%) scale(1.4) !important;
+                    }
+                    .uml-port-right:hover {
+                      transform: translateY(-50%) scale(1.4) !important;
+                    }
+                  `}} />
+
+                  {/* Scroll container wrapper to preserve scroll bounds */}
                   <Box
                     style={{
-                      width: '1500px',
-                      height: '1200px',
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      transform: `scale(${zoomScale})`,
-                      transformOrigin: 'top left',
-                      backgroundImage: isDarkMode
-                        ? 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)'
-                        : 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
-                      backgroundSize: '24px 24px',
-                      backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc'
+                      width: `${(canvasDim.width + 200) * zoomScale}px`,
+                      height: `${(canvasDim.height + 300) * zoomScale}px`,
+                      position: 'relative',
+                      overflow: 'hidden'
                     }}
                   >
-                  <svg
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      pointerEvents: 'none',
-                      zIndex: 2
-                    }}
-                  >
+                    {/* Virtual Canvas Box */}
+                    <Box
+                      style={{
+                        width: `${canvasDim.width}px`,
+                        height: `${canvasDim.height}px`,
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        transform: `scale(${zoomScale})`,
+                        transformOrigin: 'top left',
+                        backgroundImage: isDarkMode
+                          ? 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)'
+                          : 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
+                        backgroundSize: '24px 24px',
+                        backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc'
+                      }}
+                    >
+                    <svg
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        pointerEvents: 'none',
+                        zIndex: 4,
+                        overflow: 'visible'
+                      }}
+                    >
                     <defs>
+                      {/* Generalization / Inheritance (Solid line with hollow closed triangle pointing to parent) */}
                       <marker
                         id="inheritance-arrow"
                         viewBox="0 0 10 10"
@@ -1817,11 +2631,13 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                       >
                         <polygon
                           points="0,1.5 9,5 0,8.5"
-                          fill={isDarkMode ? '#0f172a' : '#f8fafc'}
+                          fill={isDarkMode ? '#1E1E2F' : '#FFFFFF'}
                           stroke={isDarkMode ? '#3b82f6' : '#1d4ed8'}
                           strokeWidth="1.5"
                         />
                       </marker>
+
+                      {/* Association (Solid line with open arrowhead pointing to target) */}
                       <marker
                         id="association-arrow"
                         viewBox="0 0 10 10"
@@ -1834,16 +2650,38 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                         <path
                           d="M 1,2 L 9,5 L 1,8"
                           fill="none"
-                          stroke="currentColor"
+                          stroke="#14b8a6"
                           strokeWidth="2.5"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         />
                       </marker>
+
+                      {/* Dependency (Dashed line with open arrowhead pointing to target) */}
+                      <marker
+                        id="dependency-arrow"
+                        viewBox="0 0 10 10"
+                        refX="9"
+                        refY="5"
+                        markerWidth="8"
+                        markerHeight="8"
+                        orient="auto-start-reverse"
+                      >
+                        <path
+                          d="M 1,2 L 9,5 L 1,8"
+                          fill="none"
+                          stroke="#f59e0b"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </marker>
+
+                      {/* Composition (Solid line with solid/filled diamond at source end) */}
                       <marker
                         id="composition-diamond"
                         viewBox="0 0 16 10"
-                        refX="2"
+                        refX="0"
                         refY="5"
                         markerWidth="10"
                         markerHeight="6"
@@ -1851,37 +2689,66 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                       >
                         <polygon points="0,5 8,1 16,5 8,9" fill="#8b5cf6" stroke="#8b5cf6" strokeWidth="1.5" />
                       </marker>
+
+                      {/* Aggregation (Solid line with hollow diamond at source end) */}
                       <marker
                         id="aggregation-diamond"
                         viewBox="0 0 16 10"
-                        refX="2"
+                        refX="0"
                         refY="5"
                         markerWidth="10"
                         markerHeight="6"
                         orient="auto-start-reverse"
                       >
-                        <polygon points="0,5 8,1 16,5 8,9" fill={isDarkMode ? '#0f172a' : '#f8fafc'} stroke="#6366f1" strokeWidth="1.8" />
+                        <polygon points="0,5 8,1 16,5 8,9" fill={isDarkMode ? '#1E1E2F' : '#FFFFFF'} stroke="#6366f1" strokeWidth="1.8" />
+                      </marker>
+
+                      {/* Realization / Implementation (Dashed line with hollow closed triangle pointing to parent/interface) */}
+                      <marker
+                        id="realization-arrow"
+                        viewBox="0 0 10 10"
+                        refX="9"
+                        refY="5"
+                        markerWidth="8"
+                        markerHeight="8"
+                        orient="auto-start-reverse"
+                      >
+                        <polygon
+                          points="0,1.5 9,5 0,8.5"
+                          fill={isDarkMode ? '#1E1E2F' : '#FFFFFF'}
+                          stroke="#10b981"
+                          strokeWidth="1.8"
+                        />
                       </marker>
                     </defs>
 
-                    {analyzeRelationships(umlClasses).map((rel) => {
-                      const sourcePos = classPositions[rel.source];
-                      const targetPos = classPositions[rel.target];
-                      if (sourcePos && targetPos) {
-                        const pts = getBestConnectionPoints(
-                          { title: rel.source, x: sourcePos.x, y: sourcePos.y },
-                          { title: rel.target, x: targetPos.x, y: targetPos.y }
-                        );
+                    {(() => {
+                      const relations = analyzeRelationships(umlClasses);
+                      return relations.map((rel) => {
+                        const sourcePos = classPositions[rel.source];
+                        const targetPos = classPositions[rel.target];
+                        if (sourcePos && targetPos) {
+                          const pts = getBestConnectionPoints(
+                            { title: rel.source, x: sourcePos.x, y: sourcePos.y },
+                            { title: rel.target, x: targetPos.x, y: targetPos.y },
+                            false,
+                            relations,
+                            rel
+                          );
                         const pathData = getBezierPath(pts.start, pts.end);
                         
                         let strokeColor = '#8b5cf6';
                         let dashArray = 'none';
                         let markerStart = 'none';
-                        let markerEnd = 'url(#association-arrow)';
+                        let markerEnd = 'none';
                         
                         if (rel.type === 'extends') {
                           strokeColor = isDarkMode ? '#3b82f6' : '#1d4ed8';
                           markerEnd = 'url(#inheritance-arrow)';
+                        } else if (rel.type === 'implements') {
+                          strokeColor = '#10b981';
+                          dashArray = '4 4';
+                          markerEnd = 'url(#realization-arrow)';
                         } else if (rel.type === 'composition') {
                           strokeColor = '#8b5cf6';
                           markerStart = 'url(#composition-diamond)';
@@ -1890,9 +2757,11 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                           markerStart = 'url(#aggregation-diamond)';
                         } else if (rel.type === 'association') {
                           strokeColor = '#14b8a6';
+                          markerEnd = 'url(#association-arrow)';
                         } else if (rel.type === 'dependency') {
                           strokeColor = '#f59e0b';
                           dashArray = '4 4';
+                          markerEnd = 'url(#dependency-arrow)';
                         }
                         
                         return (
@@ -1909,7 +2778,8 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                         );
                       }
                       return null;
-                    })}
+                    });
+                  })()}
 
                     {connectingSource && connectionStart && connectionCurrent && (
                       <path
@@ -1925,8 +2795,8 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                   {/* Absolute Draggable Cards */}
                   {umlClasses.map((umlClass, classIdx) => {
                     const pos = classPositions[umlClass.title] || {
-                      x: 40 + (classIdx % 3) * 320,
-                      y: 40 + Math.floor(classIdx / 3) * 360
+                      x: 50 + (classIdx % 3) * 420,
+                      y: 50 + Math.floor(classIdx / 3) * 460
                     };
                     return (
                       <Box
@@ -1978,21 +2848,42 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                         >
                           <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Box style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              <Checkbox
+                              <Select
                                 size="small"
-                                checked={umlClass.abstract}
-                                onChange={(e) => updateClassAbstract(classIdx, e.target.checked)}
-                                sx={{ padding: 0, color: 'var(--primary-main)' }}
-                              />
-                              <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 800 }}>
-                                Abstract
-                              </Typography>
+                                value={umlClass.type === 'interface' ? 'interface' : (umlClass.abstract ? 'abstract' : 'class')}
+                                onChange={(e) => updateClassType(classIdx, e.target.value)}
+                                style={{ height: '24px', fontSize: '0.72rem', fontWeight: 800, fontFamily: '"Outfit", sans-serif', color: 'var(--primary-main)' }}
+                                sx={{
+                                  '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(28,176,246,0.2)'
+                                  },
+                                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'var(--primary-main)'
+                                  }
+                                }}
+                              >
+                                <MenuItem value="class" style={{ fontSize: '0.72rem', fontWeight: 700 }}>Class</MenuItem>
+                                <MenuItem value="abstract" style={{ fontSize: '0.72rem', fontWeight: 700 }}>Abstract</MenuItem>
+                                <MenuItem value="interface" style={{ fontSize: '0.72rem', fontWeight: 700 }}>Interface</MenuItem>
+                              </Select>
                             </Box>
 
                             <IconButton size="small" onClick={() => deleteClass(classIdx)} style={{ color: 'var(--danger-main)', padding: '2px' }}>
                               <DeleteIcon fontSize="inherit" />
                             </IconButton>
                           </Box>
+
+                          {umlClass.type === 'interface' ? (
+                            <Typography variant="caption" style={{ color: '#10b981', fontWeight: 850, display: 'block', textAlign: 'center', fontSize: '0.62rem', textTransform: 'uppercase' }}>
+                              &lt;&lt;Interface&gt;&gt;
+                            </Typography>
+                          ) : (
+                            umlClass.abstract && (
+                              <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 850, display: 'block', textAlign: 'center', fontSize: '0.62rem', textTransform: 'uppercase' }}>
+                                &lt;&lt;Abstract&gt;&gt;
+                              </Typography>
+                            )
+                          )}
 
                           <input
                             type="text"
@@ -2015,27 +2906,57 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                           />
 
                           {/* Extends (Connection) Dropdown */}
-                          <Box style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', justifyContent: 'center' }}>
-                            <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, fontSize: '0.7rem' }}>
-                              extends
-                            </Typography>
-                            <Select
-                              size="small"
-                              value={umlClass.extends || 'none'}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                updateClassExtends(classIdx, val === 'none' ? null : val);
-                              }}
-                              style={{ height: '22px', fontSize: '0.7rem', fontFamily: 'monospace' }}
-                            >
-                              <MenuItem value="none">None</MenuItem>
-                              {umlClasses
-                                .filter(c => c.title !== umlClass.title)
-                                .map(c => (
-                                  <MenuItem key={c.title} value={c.title}>{c.title}</MenuItem>
-                                ))
-                              }
-                            </Select>
+                          <Box style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <Box style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, fontSize: '0.7rem' }}>
+                                extends
+                              </Typography>
+                              <Select
+                                size="small"
+                                value={umlClass.extends || 'none'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  updateClassExtends(classIdx, val === 'none' ? null : val);
+                                }}
+                                style={{ height: '22px', fontSize: '0.7rem', fontFamily: 'monospace' }}
+                              >
+                                <MenuItem value="none">None</MenuItem>
+                                {umlClasses
+                                  .filter(c => c.title !== umlClass.title)
+                                  .map(c => (
+                                    <MenuItem key={c.title} value={c.title}>{c.title}</MenuItem>
+                                  ))
+                                }
+                              </Select>
+                            </Box>
+
+                            {umlClass.type !== 'interface' && (
+                              <Box style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, fontSize: '0.7rem' }}>
+                                  implements
+                                </Typography>
+                                <Select
+                                  size="small"
+                                  multiple
+                                  value={umlClass.implements || []}
+                                  onChange={(e) => {
+                                    updateClassImplements(classIdx, e.target.value);
+                                  }}
+                                  renderValue={(selected) => selected.join(', ')}
+                                  style={{ height: '22px', minWidth: '80px', fontSize: '0.7rem', fontFamily: 'monospace' }}
+                                >
+                                  {umlClasses
+                                    .filter(c => c.type === 'interface' && c.title !== umlClass.title)
+                                    .map(c => (
+                                      <MenuItem key={c.title} value={c.title}>
+                                        <Checkbox size="small" checked={(umlClass.implements || []).includes(c.title)} />
+                                        <span style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>{c.title}</span>
+                                      </MenuItem>
+                                    ))
+                                  }
+                                </Select>
+                              </Box>
+                            )}
                           </Box>
                         </Box>
 
@@ -2239,55 +3160,88 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                   })}
                   </Box>
                 </Box>
-                {/* Floating zoom control panel */}
-                <Box
-                  style={{
-                    position: 'absolute',
-                    bottom: '16px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    background: isDarkMode ? 'rgba(30, 30, 47, 0.85)' : 'rgba(255, 255, 255, 0.85)',
-                    backdropFilter: 'blur(10px)',
-                    border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
-                    padding: '4px 12px',
-                    borderRadius: '20px',
-                    boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
-                    zIndex: 10
-                  }}
-                >
-                  <IconButton 
-                    size="small" 
-                    onClick={() => setZoomScale(prev => Math.max(0.4, prev - 0.1))}
-                    style={{ color: isDarkMode ? '#e0e0e0' : '#333' }}
-                  >
-                    <RemoveIcon fontSize="small" />
-                  </IconButton>
-                  <Typography variant="caption" style={{ fontFamily: 'monospace', fontWeight: 800, minWidth: '40px', textAlign: 'center', color: isDarkMode ? '#fff' : '#000' }}>
-                    {Math.round(zoomScale * 100)}%
-                  </Typography>
-                  <IconButton 
-                    size="small" 
-                    onClick={() => setZoomScale(prev => Math.min(2.0, prev + 0.1))}
-                    style={{ color: isDarkMode ? '#e0e0e0' : '#333' }}
-                  >
-                    <AddIcon fontSize="small" />
-                  </IconButton>
-                  <Button 
-                    size="small" 
-                    onClick={() => setZoomScale(1.0)}
-                    style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'none', color: 'var(--primary-main)', minWidth: 0, padding: '2px 6px' }}
-                  >
-                    Reset
-                  </Button>
-                </Box>
               </Paper>
-            </Box>
+
+              {/* Floating zoom control panel - centered relative to visible UML editor space */}
+              <Box
+                style={{
+                  position: 'absolute',
+                  bottom: '16px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: isDarkMode ? 'rgba(30, 30, 47, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+                  backdropFilter: 'blur(10px)',
+                  border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
+                  zIndex: 200
+                }}
+              >
+                <IconButton 
+                  size="small" 
+                  disabled={zoomScale <= dynamicMinZoom}
+                  onClick={() => {
+                    const container = canvasContainerRef.current;
+                    if (container) {
+                      const mx = container.clientWidth / 2;
+                      const my = container.clientHeight / 2;
+                      const x_virtual = (container.scrollLeft + mx) / zoomScale;
+                      const y_virtual = (container.scrollTop + my) / zoomScale;
+                      zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+                    }
+                    setZoomScale(prev => Math.max(dynamicMinZoom, prev - 0.1));
+                  }}
+                  style={{ color: zoomScale <= dynamicMinZoom ? (isDarkMode ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : (isDarkMode ? '#e0e0e0' : '#333') }}
+                >
+                  <RemoveIcon fontSize="small" />
+                </IconButton>
+                <IconButton 
+                  size="small" 
+                  disabled={zoomScale >= 2.0}
+                  onClick={() => {
+                    const container = canvasContainerRef.current;
+                    if (container) {
+                      const mx = container.clientWidth / 2;
+                      const my = container.clientHeight / 2;
+                      const x_virtual = (container.scrollLeft + mx) / zoomScale;
+                      const y_virtual = (container.scrollTop + my) / zoomScale;
+                      zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+                    }
+                    setZoomScale(prev => Math.min(2.0, prev + 0.1));
+                  }}
+                  style={{ color: zoomScale >= 2.0 ? (isDarkMode ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : (isDarkMode ? '#e0e0e0' : '#333') }}
+                >
+                  <AddIcon fontSize="small" />
+                </IconButton>
+                <Button 
+                  size="small" 
+                  onClick={() => {
+                    const container = canvasContainerRef.current;
+                    if (container) {
+                      const mx = container.clientWidth / 2;
+                      const my = container.clientHeight / 2;
+                      const x_virtual = (container.scrollLeft + mx) / zoomScale;
+                      const y_virtual = (container.scrollTop + my) / zoomScale;
+                      zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+                    }
+                    setZoomScale(isMobile ? 0.4 : 1.0);
+                  }}
+                  style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'none', color: 'var(--primary-main)', minWidth: 0, padding: '2px 6px' }}
+                >
+                  Reset
+                </Button>
+              </Box>
+            </>
+          )}
+        </Box>
+      </Box>
           ) : (
-            <Box style={{ width: `${100 - splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px', height: '100%' }}>
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <Box style={{ width: isMobile ? '100%' : `${100 - splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: isMobile ? '0' : '200px', height: isMobile ? '500px' : '100%', minHeight: isMobile ? '500px' : 0 }}>
+              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: isMobile ? '0.7rem' : '0.875rem' }}>
                 Interactive Java Console
               </Typography>
 
@@ -2297,12 +3251,12 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                   background: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)',
                   border: '1.5px solid rgba(255,255,255,0.06)',
                   borderRadius: '16px',
-                  padding: '20px',
-                  height: '100%',
+                  padding: isMobile ? '12px' : '20px',
+                  flexGrow: 1,
+                  minHeight: 0,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '16px',
-                  overflowY: 'auto'
+                  gap: isMobile ? '10px' : '16px'
                 }}
               >
                 {/* Run button */}
@@ -2318,7 +3272,8 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                     borderRadius: '12px',
                     fontWeight: 800,
                     textTransform: 'none',
-                    padding: '8px 16px',
+                    padding: isMobile ? '6px 12px' : '8px 16px',
+                    fontSize: isMobile ? '0.75rem' : '0.875rem',
                     boxShadow: '0 4px 15px rgba(28, 176, 246, 0.25)'
                   }}
                 >
@@ -2326,7 +3281,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                 </Button>
 
                 {/* Output console terminal */}
-                <Box style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <Box style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '8px', minHeight: 0 }}>
                   <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
                     Console Output Terminal
                   </Typography>
@@ -2343,7 +3298,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                       color: '#3DDC97',
                       whiteSpace: 'pre-wrap',
                       overflowY: 'auto',
-                      minHeight: '180px',
+                      minHeight: 0,
                       boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.5)',
                       display: 'flex',
                       flexDirection: 'column',
@@ -2455,6 +3410,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
               style={{ borderRadius: '8px' }}
             >
               <MenuItem value="extends">Inheritance (extends)</MenuItem>
+              <MenuItem value="implements">Realization (implements)</MenuItem>
               <MenuItem value="composition">Composition (Has-A, instantiated in constructor)</MenuItem>
               <MenuItem value="aggregation">Aggregation (Has-A reference, private field)</MenuItem>
               <MenuItem value="association">Association (Has-A reference, public field)</MenuItem>
@@ -2463,7 +3419,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
           </Box>
 
           {/* Conditional Variable/Parameter Input */}
-          {newRelationType !== 'extends' && (
+          {newRelationType !== 'extends' && newRelationType !== 'implements' && (
             <TextField
               label="Variable / Parameter Name"
               value={newFieldName}
@@ -2537,8 +3493,8 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
           {/* Virtual Canvas Box */}
           <Box
             style={{
-              width: `${1500 * previewZoomScale}px`,
-              height: `${1200 * previewZoomScale}px`,
+              width: `${canvasDim.width * previewZoomScale}px`,
+              height: `${canvasDim.height * previewZoomScale}px`,
               position: 'relative',
               overflow: 'hidden'
             }}
@@ -2546,8 +3502,8 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
             <Box
               id="uml-preview-capture-content"
               style={{
-                width: '1500px',
-                height: '1200px',
+                width: `${canvasDim.width}px`,
+                height: `${canvasDim.height}px`,
                 position: 'absolute',
                 top: 0,
                 left: 0,
@@ -2569,10 +3525,12 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                   width: '100%',
                   height: '100%',
                   pointerEvents: 'none',
-                  zIndex: 2
+                  zIndex: 4,
+                  overflow: 'visible'
                 }}
               >
                 <defs>
+                  {/* Generalization / Inheritance (Solid line with hollow closed triangle pointing to parent) */}
                   <marker
                     id="preview-inheritance-arrow"
                     viewBox="0 0 10 10"
@@ -2584,11 +3542,13 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                   >
                     <polygon
                       points="0,1.5 9,5 0,8.5"
-                      fill={isDarkMode ? '#0f172a' : '#f8fafc'}
+                      fill={isDarkMode ? '#1E1E2F' : '#FFFFFF'}
                       stroke={isDarkMode ? '#3b82f6' : '#1d4ed8'}
                       strokeWidth="1.5"
                     />
                   </marker>
+
+                  {/* Association (Solid line with open arrowhead pointing to target) */}
                   <marker
                     id="preview-association-arrow"
                     viewBox="0 0 10 10"
@@ -2601,16 +3561,38 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                     <path
                       d="M 1,2 L 9,5 L 1,8"
                       fill="none"
-                      stroke="currentColor"
+                      stroke="#14b8a6"
                       strokeWidth="2.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
                   </marker>
+
+                  {/* Dependency (Dashed line with open arrowhead pointing to target) */}
+                  <marker
+                    id="preview-dependency-arrow"
+                    viewBox="0 0 10 10"
+                    refX="9"
+                    refY="5"
+                    markerWidth="8"
+                    markerHeight="8"
+                    orient="auto-start-reverse"
+                  >
+                    <path
+                      d="M 1,2 L 9,5 L 1,8"
+                      fill="none"
+                      stroke="#f59e0b"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                        />
+                  </marker>
+
+                  {/* Composition (Solid line with solid/filled diamond at source end) */}
                   <marker
                     id="preview-composition-diamond"
                     viewBox="0 0 16 10"
-                    refX="2"
+                    refX="0"
                     refY="5"
                     markerWidth="10"
                     markerHeight="6"
@@ -2618,37 +3600,66 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                   >
                     <polygon points="0,5 8,1 16,5 8,9" fill="#8b5cf6" stroke="#8b5cf6" strokeWidth="1.5" />
                   </marker>
+
+                  {/* Aggregation (Solid line with hollow diamond at source end) */}
                   <marker
                     id="preview-aggregation-diamond"
                     viewBox="0 0 16 10"
-                    refX="2"
+                    refX="0"
                     refY="5"
                     markerWidth="10"
                     markerHeight="6"
                     orient="auto-start-reverse"
                   >
-                    <polygon points="0,5 8,1 16,5 8,9" fill={isDarkMode ? '#0f172a' : '#f8fafc'} stroke="#6366f1" strokeWidth="1.8" />
+                    <polygon points="0,5 8,1 16,5 8,9" fill={isDarkMode ? '#1E1E2F' : '#FFFFFF'} stroke="#6366f1" strokeWidth="1.8" />
+                  </marker>
+
+                  {/* Realization / Implementation (Dashed line with hollow closed triangle pointing to parent/interface) */}
+                  <marker
+                    id="preview-realization-arrow"
+                    viewBox="0 0 10 10"
+                    refX="9"
+                    refY="5"
+                    markerWidth="8"
+                    markerHeight="8"
+                    orient="auto-start-reverse"
+                  >
+                    <polygon
+                      points="0,1.5 9,5 0,8.5"
+                      fill={isDarkMode ? '#1E1E2F' : '#FFFFFF'}
+                      stroke="#10b981"
+                      strokeWidth="1.8"
+                    />
                   </marker>
                 </defs>
 
-                {analyzeRelationships(umlClasses).map((rel) => {
-                  const sourcePos = classPositions[rel.source];
-                  const targetPos = classPositions[rel.target];
-                  if (sourcePos && targetPos) {
-                    const pts = getBestConnectionPoints(
-                      { title: rel.source, x: sourcePos.x, y: sourcePos.y },
-                      { title: rel.target, x: targetPos.x, y: targetPos.y }
-                    );
+                {(() => {
+                  const relations = analyzeRelationships(umlClasses);
+                  return relations.map((rel) => {
+                    const sourcePos = classPositions[rel.source];
+                    const targetPos = classPositions[rel.target];
+                    if (sourcePos && targetPos) {
+                      const pts = getBestConnectionPoints(
+                        { title: rel.source, x: sourcePos.x, y: sourcePos.y },
+                        { title: rel.target, x: targetPos.x, y: targetPos.y },
+                        true,
+                        relations,
+                        rel
+                      );
                     const pathData = getBezierPath(pts.start, pts.end);
                     
                     let strokeColor = '#8b5cf6';
                     let dashArray = 'none';
                     let markerStart = 'none';
-                    let markerEnd = 'url(#preview-association-arrow)';
+                    let markerEnd = 'none';
                     
                     if (rel.type === 'extends') {
                       strokeColor = isDarkMode ? '#3b82f6' : '#1d4ed8';
                       markerEnd = 'url(#preview-inheritance-arrow)';
+                    } else if (rel.type === 'implements') {
+                      strokeColor = '#10b981';
+                      dashArray = '4 4';
+                      markerEnd = 'url(#preview-realization-arrow)';
                     } else if (rel.type === 'composition') {
                       strokeColor = '#8b5cf6';
                       markerStart = 'url(#preview-composition-diamond)';
@@ -2657,9 +3668,11 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                       markerStart = 'url(#preview-aggregation-diamond)';
                     } else if (rel.type === 'association') {
                       strokeColor = '#14b8a6';
+                      markerEnd = 'url(#preview-association-arrow)';
                     } else if (rel.type === 'dependency') {
                       strokeColor = '#f59e0b';
                       dashArray = '4 4';
+                      markerEnd = 'url(#preview-dependency-arrow)';
                     }
                     
                     return (
@@ -2676,23 +3689,26 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                     );
                   }
                   return null;
-                })}
+                });
+              })()}
               </svg>
 
               {/* Absolute Read-only Cards */}
               {umlClasses.map((umlClass, classIdx) => {
                 const pos = classPositions[umlClass.title] || {
-                  x: 40 + (classIdx % 3) * 320,
-                  y: 40 + Math.floor(classIdx / 3) * 360
+                  x: 50 + (classIdx % 3) * 420,
+                  y: 50 + Math.floor(classIdx / 3) * 460
                 };
                 return (
                   <Box
                     key={`preview-${umlClass.title}`}
+                    className="uml-preview-card"
+                    data-classname={umlClass.title}
                     style={{
                       position: 'absolute',
                       left: `${pos.x}px`,
                       top: `${pos.y}px`,
-                      width: `${calculateCardWidth(umlClass)}px`,
+                      width: `${calculateCompressedCardWidth(umlClass)}px`,
                       border: `2.5px solid ${theme.palette.primary.main}`,
                       borderRadius: '12px',
                       background: isDarkMode ? '#1E1E2F' : '#FFFFFF',
@@ -2705,10 +3721,16 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                   >
                     {/* Class Title */}
                     <Box style={{ borderBottom: '1.5px solid rgba(28,176,246,0.15)', paddingBottom: '6px', marginBottom: '8px', textAlign: 'center' }}>
-                      {umlClass.abstract && (
-                        <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 800, display: 'block', fontSize: '0.65rem', textTransform: 'uppercase' }}>
-                          &lt;&lt;Abstract&gt;&gt;
+                      {umlClass.type === 'interface' ? (
+                        <Typography variant="caption" style={{ color: '#10b981', fontWeight: 800, display: 'block', fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                          &lt;&lt;Interface&gt;&gt;
                         </Typography>
+                      ) : (
+                        umlClass.abstract && (
+                          <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 800, display: 'block', fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                            &lt;&lt;Abstract&gt;&gt;
+                          </Typography>
+                        )
                       )}
                       <Typography variant="subtitle2" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: isDarkMode ? '#fff' : '#000' }}>
                         {umlClass.title}
@@ -2716,6 +3738,11 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
                       {umlClass.extends && (
                         <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>
                           extends {umlClass.extends}
+                        </Typography>
+                      )}
+                      {umlClass.implements && umlClass.implements.length > 0 && (
+                        <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', display: 'block' }}>
+                          implements {umlClass.implements.join(', ')}
                         </Typography>
                       )}
                     </Box>
@@ -2787,7 +3814,7 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
             gap: '8px',
             background: isDarkMode ? 'rgba(30, 30, 47, 0.85)' : 'rgba(255, 255, 255, 0.85)',
             backdropFilter: 'blur(10px)',
-            border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
+            border: isDarkMode ? '1px solid rgba(30, 30, 47, 0.15)' : '1px solid rgba(0, 0, 0, 0.1)',
             padding: '4px 12px',
             borderRadius: '20px',
             boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
@@ -2796,24 +3823,53 @@ export const JavaOopUmlPlayground = ({ open, onClose, initialCode }) => {
         >
           <IconButton 
             size="small" 
-            onClick={() => setPreviewZoomScale(prev => Math.max(0.4, prev - 0.1))}
-            style={{ color: isDarkMode ? '#e0e0e0' : '#333' }}
+            disabled={previewZoomScale <= dynamicPreviewMinZoom}
+            onClick={() => {
+              const container = previewCanvasContainerRef.current;
+              if (container) {
+                const mx = container.clientWidth / 2;
+                const my = container.clientHeight / 2;
+                const x_virtual = (container.scrollLeft + mx) / previewZoomScale;
+                const y_virtual = (container.scrollTop + my) / previewZoomScale;
+                previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+              }
+              setPreviewZoomScale(prev => Math.max(dynamicPreviewMinZoom, prev - 0.1));
+            }}
+            style={{ color: previewZoomScale <= dynamicPreviewMinZoom ? (isDarkMode ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : (isDarkMode ? '#e0e0e0' : '#333') }}
           >
             <RemoveIcon fontSize="small" />
           </IconButton>
-          <Typography variant="caption" style={{ fontFamily: 'monospace', fontWeight: 800, minWidth: '40px', textAlign: 'center', color: isDarkMode ? '#fff' : '#000' }}>
-            {Math.round(previewZoomScale * 100)}%
-          </Typography>
           <IconButton 
             size="small" 
-            onClick={() => setPreviewZoomScale(prev => Math.min(2.0, prev + 0.1))}
-            style={{ color: isDarkMode ? '#e0e0e0' : '#333' }}
+            disabled={previewZoomScale >= 2.0}
+            onClick={() => {
+              const container = previewCanvasContainerRef.current;
+              if (container) {
+                const mx = container.clientWidth / 2;
+                const my = container.clientHeight / 2;
+                const x_virtual = (container.scrollLeft + mx) / previewZoomScale;
+                const y_virtual = (container.scrollTop + my) / previewZoomScale;
+                previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+              }
+              setPreviewZoomScale(prev => Math.min(2.0, prev + 0.1));
+            }}
+            style={{ color: previewZoomScale >= 2.0 ? (isDarkMode ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : (isDarkMode ? '#e0e0e0' : '#333') }}
           >
             <AddIcon fontSize="small" />
           </IconButton>
           <Button 
             size="small" 
-            onClick={() => setPreviewZoomScale(1.0)}
+            onClick={() => {
+              const container = previewCanvasContainerRef.current;
+              if (container) {
+                const mx = container.clientWidth / 2;
+                const my = container.clientHeight / 2;
+                const x_virtual = (container.scrollLeft + mx) / previewZoomScale;
+                const y_virtual = (container.scrollTop + my) / previewZoomScale;
+                previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+              }
+              setPreviewZoomScale(1.0);
+            }}
             style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'none', color: 'var(--primary-main)', minWidth: 0, padding: '2px 6px' }}
           >
             Reset

@@ -773,3 +773,83 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
+.print-only-container {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 1.5cm;
+  }
+  
+  .learning-content-header,
+  .learning-content-footer,
+  .learning-progress-bar,
+  .learning-back-btn,
+  .learning-close-btn,
+  .footer-nav-btn,
+  .download-pdf-btn,
+  .learning-slide-deck {
+    display: none !important;
+  }
+
+  body, .learning-content-page {
+    background: var(--background-default) !important;
+    color: var(--text-primary) !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-only-container {
+    display: block !important;
+    width: 100%;
+  }
+
+  .print-page {
+    page-break-inside: avoid;
+    margin-bottom: 2rem;
+  }
+
+  .slide-page-title {
+    color: var(--text-primary) !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+    background: none !important;
+  }
+
+  .slide-code-card {
+    border: 1px solid var(--code-border) !important;
+    background: var(--code-bg) !important;
+    box-shadow: none !important;
+  }
+
+  .code-pre, .code-line-content {
+    white-space: pre-wrap !important;
+  }
+
+  .slide-heading, .slide-paragraph, .slide-bullet-text, .slide-bullet-bold {
+    color: var(--text-primary) !important;
+  }
+
+  .slide-callout {
+    page-break-inside: avoid;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .slide-table th {
+    background: var(--background-paper-alt) !important;
+    color: var(--text-primary) !important;
+    border-bottom: 2px solid var(--divider) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .slide-table td {
+    color: var(--text-secondary) !important;
+    border-bottom: 1px solid var(--divider) !important;
+  }
+}
+
